@@ -25,8 +25,8 @@ export function CommitteeGrid() {
     setOpen(false);
   };
 
-  const byTeam = items.reduce<Record<string, CommitteeMember[]>>((acc, m) => {
-    const key = m.Team || 'Unassigned';
+  const byRole = items.reduce<Record<string, CommitteeMember[]>>((acc, m) => {
+    const key = m.Role || 'Unassigned Position';
     (acc[key] ??= []).push(m);
     return acc;
   }, {});
@@ -47,16 +47,18 @@ export function CommitteeGrid() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading committee…
         </div>
       ) : (
-        Object.entries(byTeam).map(([team, members]) => (
-          <div key={team} className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{team}</p>
+        Object.entries(byRole).map(([role, members]) => (
+          <div key={role} className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">
+              {role} {members.length > 1 && `(${members.length})`}
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {members.map((m) => (
                 <div key={m.Id} className="rounded-xl border border-ink/10 bg-white p-4 space-y-1.5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-semibold text-sm">{m.Name}</p>
-                      <p className="text-xs text-ink/50">{m.Role}</p>
+                      <p className="font-semibold text-sm">{m.Name || '— unassigned —'}</p>
+                      <p className="text-xs text-ink/50">{m.Team}</p>
                     </div>
                     {canEdit && (
                       <div className="flex gap-1">
