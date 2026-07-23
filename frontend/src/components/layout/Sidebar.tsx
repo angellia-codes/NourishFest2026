@@ -1,4 +1,5 @@
 import {
+  LayoutDashboard,
   Lightbulb,
   Users,
   Wallet,
@@ -29,12 +30,17 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  key: 'pre-event' | 'main-event' | 'documents';
+  key: 'dashboard' | 'pre-event' | 'main-event' | 'documents';
   label: string;
   items: NavItem[];
 }
 
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'dashboard',
+    label: 'Overview',
+    items: [{ key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'Budget' }],
+  },
   {
     key: 'pre-event',
     label: 'Road to NourishFest',

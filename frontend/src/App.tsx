@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { usePermissions } from '@/context/PermissionContext';
+import { Dashboard } from '@/components/modules/Dashboard/Dashboard';
 import { IdeasBoard } from '@/components/modules/PreEvent/Ideas';
 import { CommitteeGrid } from '@/components/modules/PreEvent/Committee';
 import { BudgetTable } from '@/components/modules/PreEvent/Budget';
@@ -16,6 +17,7 @@ import { DocumentsScreen } from '@/components/documents/DocumentsScreen';
 import { ShieldAlert } from 'lucide-react';
 
 const SCREENS: Record<string, React.ComponentType> = {
+  dashboard: Dashboard,
   ideas: IdeasBoard,
   committee: CommitteeGrid,
   budget: () => <BudgetTable phase="Pre-Event" title="Budget — Pre-Event" />,
@@ -41,9 +43,9 @@ const SCREENS: Record<string, React.ComponentType> = {
 };
 
 export default function App() {
-  const [active, setActive] = useState('ideas');
+  const [active, setActive] = useState('dashboard');
   const { email, loading } = usePermissions();
-  const Screen = SCREENS[active] ?? IdeasBoard;
+  const Screen = SCREENS[active] ?? Dashboard;
 
   return (
     <div className="flex min-h-screen bg-paper">
