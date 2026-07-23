@@ -40,17 +40,19 @@ export interface CommitteeMember {
 }
 
 export type Phase = 'Pre-Event' | 'Main Event';
-export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
+export type ApprovalStatus = 'Pending' | 'Approved' | 'Partial Paid' | 'Fully Paid';
 
 export interface BudgetItem {
   Id: string;
   Phase: Phase;
+  EventName: string;
   Module: string;
   ItemName: string;
   Category: string;
   EstimatedCost: number;
   ActualCost: number;
   ApprovalStatus: ApprovalStatus;
+  Vendor: string;
   PIC: string;
   Notes: string;
   CreatedAt: string;

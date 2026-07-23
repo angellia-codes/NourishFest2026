@@ -5,40 +5,50 @@ import { usePermissions } from '@/context/PermissionContext';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
 import { AttachmentsPanel } from '@/components/documents/AttachmentsPanel';
-import type { ApprovalStatus, BudgetItem, Phase } from '@/types';
+import type { ApprovalStatus, BudgetItem, Idea, Phase } from '@/types';
 
-const APPROVALS: ApprovalStatus[] = ['Pending', 'Approved', 'Rejected'];
-const APPROVAL_TONE: Record<ApprovalStatus, 'warning' | 'success' | 'danger'> = {
+const APPROVALS: ApprovalStatus[] = ['Pending', 'Approved', 'Partial Paid', 'Fully Paid'];
+const APPROVAL_TONE: Record<ApprovalStatus, 'warning' | 'info' | 'brand' | 'success'> = {
   Pending: 'warning',
-  Approved: 'success',
-  Rejected: 'danger',
+  Approved: 'info',
+  'Partial Paid': 'brand',
+  'Fully Paid': 'success',
 };
 
-const EMPTY: Partial<BudgetItem> = {
-  ItemName: '',
-  Category: '',
-  Module: '',
-  EstimatedCost: 0,
-  ActualCost: 0,
-  ApprovalStatus: 'Pending',
-  PIC: '',
-  Notes: '',
-};
+const CATEGORIES = ['F&B Supplies', 'Venue & Ops', 'Marketing', 'Logistics', 'Permits/Compliance', 'Misc'];
+
+const MAIN_EVENT_NAME = 'NourishFest Main Event';
+
+function emptyForm(phase: Phase): Partial<BudgetItem> {
+  return {
+    ItemName: '',
+    Category: '',
+    Module: '',
+    EventName: phase === 'Main Event' ? MAIN_EVENT_NAME : '',
+    EstimatedCost: 0,
+    ActualCost: 0,
+    ApprovalStatus: 'Pending',
+    Vendor: '',
+    PIC: '',
+    Notes: '',
+  };
+}
 
 /** phase='Pre-Event' | 'Main Event' — Budget rows are shared, tagged by Phase */
 export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
   const { items, isLoading, create, update, remove, isMutating } = useSheetData<BudgetItem>('Budget', { Phase: phase });
+  const { items: approvedIdeas } = useSheetData<Idea>('Ideas', { Status: 'Approved' });
   const { can } = usePermissions();
   const canEdit = can('Budget', 'Editor');
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<BudgetItem | null>(null);
-  const [form, setForm] = useState<Partial<BudgetItem>>(EMPTY);
+  const [form, setForm] = useState<Partial<BudgetItem>>(emptyForm(phase));
   const [attachingItem, setAttachingItem] = useState<BudgetItem | null>(null);
 
   const openCreate = () => {
     setEditing(null);
-    setForm(EMPTY);
+    setForm(emptyForm(phase));
     setOpen(true);
   };
   const openEdit = (item: BudgetItem) => {
@@ -83,12 +93,13 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
             <thead>
               <tr className="border-b border-ink/10 text-left text-ink/50 text-xs uppercase tracking-wide">
                 <th className="px-4 py-3">Item</th>
+                <th className="px-4 py-3">Event</th>
                 <th className="px-4 py-3">Module</th>
                 <th className="px-4 py-3 text-right">Estimated</th>
                 <th className="px-4 py-3 text-right">Actual</th>
                 <th className="px-4 py-3 text-right">Variance</th>
                 <th className="px-4 py-3">Approval</th>
-                <th className="px-4 py-3">PIC</th>
+                <th className="px-4 py-3">Vendor / PIC</th>
                 {canEdit && <th className="px-4 py-3" />}
               </tr>
             </thead>
@@ -98,17 +109,46 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
                 return (
                   <tr key={item.Id} className="border-b border-ink/5 last:border-0 hover:bg-paper/60">
                     <td className="px-4 py-3 font-medium">{item.ItemName}</td>
+                    <td className="px-4 py-3 text-ink/60">{item.EventName}</td>
                     <td className="px-4 py-3 text-ink/60">{item.Module}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{formatIDR(item.EstimatedCost)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{formatIDR(item.ActualCost)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {canEdit ? (
+                        <Input
+                          type="number"
+                          defaultValue={item.ActualCost}
+                          onBlur={(e) => {
+                            const next = Number(e.target.value);
+                            if (next !== item.ActualCost) update(item.Id, { ActualCost: next });
+                          }}
+                          className="w-28 text-right"
+                        />
+                      ) : (
+                        formatIDR(item.ActualCost)
+                      )}
+                    </td>
                     <td className={`px-4 py-3 text-right tabular-nums ${v > 0 ? 'text-red-600' : 'text-jungle'}`}>
                       {v > 0 ? '+' : ''}
                       {formatIDR(v)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={APPROVAL_TONE[item.ApprovalStatus]}>{item.ApprovalStatus}</Badge>
+                      {canEdit ? (
+                        <Select
+                          value={item.ApprovalStatus}
+                          onChange={(e) => update(item.Id, { ApprovalStatus: e.target.value as ApprovalStatus })}
+                          className="w-32"
+                        >
+                          {APPROVALS.map((a) => (
+                            <option key={a} value={a}>
+                              {a}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <Badge tone={APPROVAL_TONE[item.ApprovalStatus]}>{item.ApprovalStatus}</Badge>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-ink/60">{item.PIC}</td>
+                    <td className="px-4 py-3 text-ink/60">{[item.Vendor, item.PIC].filter(Boolean).join(' / ')}</td>
                     {canEdit && (
                       <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
                         <button onClick={() => setAttachingItem(item)} className="text-ink/40 hover:text-guava" title="Attachments">
@@ -135,9 +175,28 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
           <Field label="Item Name">
             <Input value={form.ItemName ?? ''} onChange={(e) => setForm({ ...form, ItemName: e.target.value })} />
           </Field>
+          {phase === 'Pre-Event' && (
+            <Field label="Event Name">
+              <Select value={form.EventName ?? ''} onChange={(e) => setForm({ ...form, EventName: e.target.value })}>
+                <option value="">— select an approved idea —</option>
+                {approvedIdeas.map((idea) => (
+                  <option key={idea.Id} value={idea.Title}>
+                    {idea.Title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
-              <Input value={form.Category ?? ''} onChange={(e) => setForm({ ...form, Category: e.target.value })} />
+              <Select value={form.Category ?? ''} onChange={(e) => setForm({ ...form, Category: e.target.value })}>
+                <option value="">— select —</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Module">
               <Input value={form.Module ?? ''} onChange={(e) => setForm({ ...form, Module: e.target.value })} placeholder="e.g. Entertainment" />
@@ -167,6 +226,9 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
                   </option>
                 ))}
               </Select>
+            </Field>
+            <Field label="Vendor/Supplier">
+              <Input value={form.Vendor ?? ''} onChange={(e) => setForm({ ...form, Vendor: e.target.value })} />
             </Field>
             <Field label="PIC">
               <Input value={form.PIC ?? ''} onChange={(e) => setForm({ ...form, PIC: e.target.value })} />

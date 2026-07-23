@@ -35,7 +35,7 @@ const SHEET_SCHEMAS = {
   Permissions:       ['Id', 'Email', 'Module', 'Role', 'Name'],
   Ideas:             ['Id', 'Title', 'Description', 'SubmittedBy', 'Category', 'Votes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Committee:         ['Id', 'Name', 'Role', 'Team', 'Phone', 'Email', 'Responsibilities', 'Notes'],
-  Budget:            ['Id', 'Phase', 'Module', 'ItemName', 'Category', 'EstimatedCost', 'ActualCost', 'ApprovalStatus', 'PIC', 'Notes', 'CreatedAt', 'UpdatedAt'],
+  Budget:            ['Id', 'Phase', 'EventName', 'Module', 'ItemName', 'Category', 'EstimatedCost', 'ActualCost', 'ApprovalStatus', 'Vendor', 'PIC', 'Notes', 'CreatedAt', 'UpdatedAt'],
   Proposal:          ['Id', 'Type', 'Title', 'Description', 'Price', 'Benefits', 'DisplayOrder'],
   Checklist:         ['Id', 'Phase', 'Module', 'Task', 'Assignee', 'Deadline', 'Priority', 'Status', 'Notes', 'CreatedAt', 'UpdatedAt'],
   EventInfo:         ['Id', 'Field', 'Value', 'Notes'],
