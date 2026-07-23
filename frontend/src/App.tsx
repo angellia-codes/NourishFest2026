@@ -52,7 +52,7 @@ export default function App() {
       <Sidebar active={active} onSelect={setActive} />
       <main className="flex-1 min-w-0">
         <header className="sticky top-0 z-10 bg-paper/90 backdrop-blur border-b border-ink/10 px-6 py-3 flex items-center justify-between">
-          <p className="text-xs text-ink/40">NourishFest 2026 · Organizer Console</p>
+          <p className="text-xs text-ink/40">NourishFest 2026 · Event Management App</p>
           {!loading && !email && (
             <span className="flex items-center gap-1.5 text-xs text-red-600">
               <ShieldAlert className="h-3.5 w-3.5" /> Not signed in — no modules will be editable

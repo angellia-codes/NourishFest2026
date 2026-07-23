@@ -92,7 +92,7 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
       <div className="px-5 pt-6 pb-5 border-b border-white/10">
         <div className="h-9 w-9 rounded-lg bg-festival-gradient mb-3" />
         <h1 className="font-display text-xl font-semibold leading-tight">NourishFest</h1>
-        <p className="text-xs text-paper/60 tracking-wide">2026 · Event Command Center</p>
+        <p className="text-xs text-paper/60 tracking-wide">2026 · Event Management App</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
