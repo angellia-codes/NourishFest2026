@@ -10,7 +10,6 @@ import {
   Trophy,
   Package,
   Sparkles,
-  Palette,
   Type,
   CalendarClock,
   Mic2,
