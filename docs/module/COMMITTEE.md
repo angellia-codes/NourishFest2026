@@ -5,14 +5,14 @@ This document outlines the core organizing committee for NourishFest 2026. This 
 ## 🎛️ Module Features (UI/UX)
 
 - **Add:** Quickly assign new team members to vacant roles or create entirely new custom positions.
-- **Edit:** Update names, departments, or modify the scope of a role's responsibilities as event needs evolve.
+- **Edit:** Update names, teams, or modify the scope of a role's responsibilities as event needs evolve.
 - **Delete:** Remove members who transition out of the committee or delete obsolete positions to keep the directory clean.
 
 ---
 
 ## 📋 Committee Directory
 
-| Position                                      | Role Description                                               | Name        | Dept        | Key Responsibilities                                                                      |
+| Position                                      | Role Description                                               | Name        | Team        | Key Responsibilities                                                                      |
 | :-------------------------------------------- | :------------------------------------------------------------- | :---------- | :---------- | :---------------------------------------------------------------------------------------- |
 | **Chairperson**                               | Oversees the entire event and leads the organizing team.       | _[ Blank ]_ | _[ Blank ]_ | Final decision-making, stakeholder alignment, and overall team leadership.                |
 | **Vice Chairperson**                          | Assists the Chairperson and acts as backup when needed.        | _[ Blank ]_ | _[ Blank ]_ | Cross-functional coordination, milestone tracking, and dispute resolution.                |
@@ -25,6 +25,7 @@ This document outlines the core organizing committee for NourishFest 2026. This 
 | **Documentation Coordinator**                 | Designs merch & backdrop. Captures Photos & Videos.            | _[ Blank ]_ | _[ Blank ]_ | Graphic design (banners, digital assets), event photography, and videography.             |
 | **Sponsorship Coordinator**                   | Secures sponsorship from vendors and suppliers.                | _[ Blank ]_ | _[ Blank ]_ | Pitching proposal packages, sponsor relationship management, and contract negotiation.    |
 
----
-
-**Next Step for Development:** _Map these columns to the Google Apps Script backend to serve as the initial JSON payload for the frontend data table._
+**Field mapping:** "Role Description" above corresponds to the `Notes` column
+in the `Committee` schema (a short blurb on what the role does); "Key
+Responsibilities" corresponds to `Responsibilities` (the longer task list).
+See `docs/core/SCHEMA.md`.

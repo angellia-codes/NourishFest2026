@@ -71,6 +71,7 @@ export function CommitteeGrid() {
                       </div>
                     )}
                   </div>
+                  {m.Notes && <p className="text-xs italic text-ink/50">{m.Notes}</p>}
                   <p className="text-xs text-ink/60">{m.Responsibilities}</p>
                   <div className="flex flex-col gap-0.5 pt-1 text-xs text-ink/50">
                     {m.Phone && (
@@ -110,6 +111,9 @@ export function CommitteeGrid() {
               <Input value={form.Email ?? ''} onChange={(e) => setForm({ ...form, Email: e.target.value })} />
             </Field>
           </div>
+          <Field label="Notes">
+            <Textarea value={form.Notes ?? ''} onChange={(e) => setForm({ ...form, Notes: e.target.value })} />
+          </Field>
           <Field label="Responsibilities">
             <Textarea value={form.Responsibilities ?? ''} onChange={(e) => setForm({ ...form, Responsibilities: e.target.value })} />
           </Field>
