@@ -20,7 +20,7 @@ async function get<T>(action: string, params: Record<string, string> = {}): Prom
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== '') url.searchParams.set(k, v);
   });
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { credentials: 'include' });
   const json = (await res.json()) as ApiResponse<T>;
   if (!json.success) throw new Error(json.error || 'Request failed');
   return json.data as T;
@@ -34,6 +34,7 @@ async function post<T>(action: string, body: Record<string, unknown> = {}): Prom
     // preflight would fail. The backend still JSON.parses the body.
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action, ...body }),
+    credentials: 'include',
   });
   const json = (await res.json()) as ApiResponse<T>;
   if (!json.success) throw new Error(json.error || 'Request failed');

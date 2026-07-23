@@ -8,13 +8,6 @@
  *   Execute as:      User accessing the web app   <-- required for role checks
  *   Who has access:  Anyone within [your Workspace domain]
  *
- * NOTE: "Execute as: User accessing the web app" + domain-restricted access
- * requires Google Workspace. If NourishFest organizers are on plain @gmail
- * accounts, Session.getActiveUser().getEmail() will return an empty string
- * for "Anyone" access, and role checks will always fail closed. In that case,
- * switch getUserEmail() below to read an email passed from the frontend
- * (validated via a shared secret) instead of relying on Session.
- *
  * ARCHITECTURE:
  *   One generic REST-ish layer over named sheet tabs. No per-module endpoints.
  *   GET  ?action=list&sheet=Ideas&Status=New
@@ -22,8 +15,8 @@
  *   POST { action:'create', sheet:'Ideas', data:{...} }
  *   POST { action:'update', sheet:'Ideas', id:'<uuid>', data:{...} }
  *   POST { action:'delete', sheet:'Ideas', id:'<uuid>' }
- *   GET  ?action=whoami          -> current user email + permissions
- *   GET  ?action=listModules     -> all sheet/module names
+ *   GET  ?action=whoami        -> current user email + permissions
+ *   GET  ?action=listModules   -> all sheet/module names
  *
  * Run setupSheets() once manually from the editor to initialize all tabs.
  * ============================================================================
@@ -47,9 +40,6 @@ const SHEET_SCHEMAS = {
   Documents:         ['Id', 'DocType', 'Title', 'ReferenceNo', 'LinkedModule', 'LinkedRecordId', 'FileUrl', 'FileId', 'FileName', 'UploadedBy', 'UploadedAt', 'Notes'],
 };
 
-// Starter rows for the Committee tab, seeded by setupSheets() — from the
-// core structure in docs/module/COMMITTEE.md. Name/Team/Phone/Email are left
-// blank for organizers to fill in as roles are assigned.
 const COMMITTEE_STARTER_ROLES = [
   { role: 'Chairperson', responsibilities: 'Final decision-making, stakeholder alignment, and overall team leadership.', notes: 'Oversees the entire event and leads the organizing team.' },
   { role: 'Vice Chairperson', responsibilities: 'Cross-functional coordination, milestone tracking, and dispute resolution.', notes: 'Assists the Chairperson and acts as backup when needed.' },
@@ -63,28 +53,10 @@ const COMMITTEE_STARTER_ROLES = [
   { role: 'Sponsorship Coordinator', responsibilities: 'Pitching proposal packages, sponsor relationship management, and contract negotiation.', notes: 'Secures sponsorship from vendors and suppliers.' },
 ];
 
-// All uploaded documents (vendor quotations, invoices, contracts, permits,
-// receipts, etc.) are saved into this single Drive folder so every
-// organizer's uploads land in one shared place regardless of whose Google
-// account executes the request.
-//
-// SETUP (one-time, manual):
-//   1. Create a Drive folder, e.g. "NourishFest 2026 Documents".
-//   2. Share it with Editor access to every organizer email (or to your
-//      Workspace domain, "Anyone in [domain] with the link can edit").
-//   3. Open the folder, copy the ID from its URL
-//      (https://drive.google.com/drive/folders/<THIS_PART>).
-//   4. Paste it below.
-const DOCUMENTS_FOLDER_ID = 'PASTE_YOUR_DRIVE_FOLDER_ID_HERE';
-
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB — keep uploads well under GAS's execution/payload limits
+const DOCUMENTS_FOLDER_ID = '1IcC-SVyb1u6SHA9B3r_nDWCON7yIjEnh';
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB limit
 
 // ====== AI GENERATION (Gemini) ======
-// Owner/Admin only (see AI_MODULE permission checks in handleRequest).
-// The API key is NOT stored here in source — set it once via the
-// "NourishFest Admin > Set Gemini API Key" menu (see onOpen() below), which
-// saves it to this project's Script Properties. Get a key at
-// https://aistudio.google.com/apikey
 const AI_MODULE = 'AI';
 const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -119,9 +91,6 @@ function handleRequest(e) {
       return jsonOut({ success: true, data: Object.keys(SHEET_SCHEMAS) });
     }
 
-    // AI generation is not tied to any sheet — gated on its own 'AI' permission
-    // module instead. Grant it via a Permissions row with Module='AI' (or the
-    // global Module='*' Admin already has it). Owner/Admin only, per design.
     if (action === 'aiGenerateText') {
       if (!hasPermission(email, AI_MODULE, 'Admin')) {
         return jsonOut({ success: false, error: 'Forbidden: AI generation requires Admin' });
@@ -140,7 +109,14 @@ function handleRequest(e) {
     }
 
     const isWrite = WRITE_ACTIONS.indexOf(action) !== -1;
-    const requiredRole = isWrite ? 'Editor' : 'Viewer';
+    let requiredRole = isWrite ? 'Editor' : 'Viewer';
+
+    // FIX 3: Privilege Escalation Safeguard
+    // Prevent Editors from editing the Permissions tab to grant themselves Admin rights.
+    if (sheetName === 'Permissions' && isWrite) {
+      requiredRole = 'Admin';
+    }
+
     if (!hasPermission(email, sheetName, requiredRole)) {
       return jsonOut({ success: false, error: 'Forbidden: ' + email + ' needs ' + requiredRole + ' on ' + sheetName });
     }
@@ -174,16 +150,14 @@ function handleRequest(e) {
   }
 }
 
-// Frontend sends POST bodies as text/plain (see api.ts) to avoid a CORS
-// preflight OPTIONS request, which GAS Web Apps do not handle. We parse it
-// as JSON regardless of the declared content type.
+// FIX 4: Explicit JSON handling (fail quickly with clear error if bad JSON is posted)
 function parseBody(e) {
-  try {
-    if (e && e.postData && e.postData.contents) {
+  if (e && e.postData && e.postData.contents) {
+    try {
       return JSON.parse(e.postData.contents);
+    } catch (err) {
+      throw new Error('Invalid JSON payload sent in request body.');
     }
-  } catch (err) {
-    // not JSON / no body — fine for GET requests
   }
   return {};
 }
@@ -220,7 +194,6 @@ function getPermissionsForUser(email) {
     .map(function (r) { return { module: r[moduleIdx], role: r[roleIdx] }; });
 }
 
-// module = '*' in the Permissions sheet grants that role across every sheet.
 function hasPermission(email, moduleName, minRole) {
   if (!email) return false;
   const perms = getPermissionsForUser(email);
@@ -256,7 +229,7 @@ function listRows(sheetName, params) {
   const reserved = ['action', 'sheet', 'id', 'data'];
   Object.keys(params).forEach(function (key) {
     if (reserved.indexOf(key) === -1 && params[key] !== '' && params[key] !== undefined) {
-      rows = rows.filter(function (r) { return String(r[key]) === String(params[key]); });
+      rows = rows.filter(function (r) { return String(r[key]).toLowerCase() === String(params[key]).toLowerCase(); });
     }
   });
   return rows;
@@ -264,7 +237,7 @@ function listRows(sheetName, params) {
 
 function getRowById(sheetName, id) {
   const rows = listRows(sheetName, {});
-  const match = rows.find(function (r) { return r.Id === id; });
+  const match = rows.find(function (r) { return String(r.Id) === String(id); });
   return match || null;
 }
 
@@ -287,7 +260,7 @@ function updateRow(sheetName, id, data) {
   const headers = values[0];
   const idIdx = headers.indexOf('Id');
   for (let i = 1; i < values.length; i++) {
-    if (values[i][idIdx] === id) {
+    if (String(values[i][idIdx]) === String(id)) {
       const current = rowsToObjects([headers, values[i]])[0];
       const updated = Object.assign({}, current, data);
       if (headers.indexOf('UpdatedAt') !== -1) updated.UpdatedAt = new Date().toISOString();
@@ -304,7 +277,7 @@ function deleteRow(sheetName, id) {
   const values = sheet.getDataRange().getValues();
   const idIdx = values[0].indexOf('Id');
   for (let i = 1; i < values.length; i++) {
-    if (values[i][idIdx] === id) {
+    if (String(values[i][idIdx]) === String(id)) {
       sheet.deleteRow(i + 1);
       return { deleted: id };
     }
@@ -314,14 +287,18 @@ function deleteRow(sheetName, id) {
 
 // ====== DOCUMENT UPLOAD (Drive) ======
 
-// params.data must include: DocType, Title, FileName, FileBase64, MimeType,
-// and optionally ReferenceNo, LinkedModule, LinkedRecordId, Notes.
 function uploadDocument(params, email) {
   const data = params.data || {};
   if (!data.FileBase64) throw new Error('Missing FileBase64');
   if (!data.FileName) throw new Error('Missing FileName');
 
-  const bytes = Utilities.base64Decode(data.FileBase64);
+  // FIX 2: Data URI prefix stripping prior to decoding
+  let rawB64 = data.FileBase64;
+  if (rawB64.indexOf(',') !== -1) {
+    rawB64 = rawB64.split(',')[1];
+  }
+
+  const bytes = Utilities.base64Decode(rawB64);
   if (bytes.length > MAX_UPLOAD_BYTES) {
     throw new Error('File too large (max ' + (MAX_UPLOAD_BYTES / (1024 * 1024)) + 'MB)');
   }
@@ -348,15 +325,13 @@ function uploadDocument(params, email) {
 
 function getDocumentsFolder() {
   if (!DOCUMENTS_FOLDER_ID || DOCUMENTS_FOLDER_ID === 'PASTE_YOUR_DRIVE_FOLDER_ID_HERE') {
-    throw new Error('DOCUMENTS_FOLDER_ID is not configured — see setup instructions at the top of Code.gs');
+    throw new Error('DOCUMENTS_FOLDER_ID is not configured — see setup instructions at top of Code.gs');
   }
   return DriveApp.getFolderById(DOCUMENTS_FOLDER_ID);
 }
 
 // ====== AI GENERATION (Gemini) ======
 
-// Adds a menu so the sheet owner can paste the Gemini key without ever
-// putting it in source code. Runs automatically when the Sheet is opened.
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('NourishFest Admin')
@@ -388,8 +363,6 @@ function getGeminiApiKey() {
   return key;
 }
 
-// data: { kind: 'idea'|'theme'|'tagline'|'decoration', prompt: string }
-// returns: { suggestions: string[] }
 function aiGenerateText(data) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_TEXT_MODEL + ':generateContent';
   const payload = {
@@ -406,15 +379,11 @@ function aiGenerateText(data) {
   try {
     suggestions = JSON.parse(text);
   } catch (err) {
-    suggestions = [text]; // fall back to raw text if the model didn't return clean JSON
+    suggestions = [text];
   }
   return { suggestions: suggestions };
 }
 
-// data: { kind: 'theme'|'decoration', prompt: string }
-// returns: { imageBase64: string, mimeType: string } — NOT saved to Drive yet;
-// the frontend previews it and calls uploadDocument() itself if the
-// organizer chooses to keep it (see useAIGenerate.ts).
 function aiGenerateImage(data) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_IMAGE_MODEL + ':generateContent';
   const payload = {
@@ -428,6 +397,7 @@ function aiGenerateImage(data) {
   return { imageBase64: imagePart.inlineData.data, mimeType: imagePart.inlineData.mimeType };
 }
 
+// FIX 5: HTTP status and non-JSON error handling for external API calls
 function callGemini(url, payload) {
   const res = UrlFetchApp.fetch(url, {
     method: 'post',
@@ -436,9 +406,24 @@ function callGemini(url, payload) {
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   });
-  const json = JSON.parse(res.getContentText());
+
+  const statusCode = res.getResponseCode();
+  const rawText = res.getContentText();
+
+  if (statusCode >= 400) {
+    throw new Error('Gemini API HTTP Error ' + statusCode + ': ' + rawText);
+  }
+
+  let json;
+  try {
+    json = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error('Failed to parse Gemini response: ' + rawText);
+  }
+
   if (json.error) throw new Error('Gemini error: ' + json.error.message);
   if (!json.candidates || !json.candidates.length) throw new Error('Gemini returned no candidates (possibly blocked by safety filters).');
+
   return json;
 }
 
@@ -485,27 +470,74 @@ function jsonOut(obj) {
 }
 
 // ====== ONE-TIME SETUP ======
-// Run manually from the Apps Script editor (select this function, click Run)
-// against a blank spreadsheet. Re-running wipes and rebuilds headers only —
-// it will NOT touch existing data rows in tabs that already exist... actually
-// it clears the whole sheet, so only run this once before you start entering data.
+
+// FIX 1: Non-destructive initialization. Existing tabs and row data are preserved.
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+
   Object.keys(SHEET_SCHEMAS).forEach(function (name) {
     let sheet = ss.getSheetByName(name);
-    if (!sheet) sheet = ss.insertSheet(name);
-    sheet.clear();
-    sheet.appendRow(SHEET_SCHEMAS[name]);
-    sheet.setFrozenRows(1);
+    if (!sheet) {
+      sheet = ss.insertSheet(name);
+      sheet.appendRow(SHEET_SCHEMAS[name]);
+      sheet.setFrozenRows(1);
+    }
   });
-  // Seed the person running setup as global Admin so nobody gets locked out.
+
+  // Seed the person running setup as global Admin if not already set
   const permSheet = ss.getSheetByName('Permissions');
   const myEmail = Session.getActiveUser().getEmail();
-  permSheet.appendRow([Utilities.getUuid(), myEmail, '*', 'Admin', 'Setup Admin']);
-  // Seed the core committee positions so organizers just fill in who's who.
+  
+  if (permSheet.getLastRow() <= 1) {
+    permSheet.appendRow([Utilities.getUuid(), myEmail, '*', 'Admin', 'Setup Admin']);
+  }
+
+  // Seed starter committee roles only if the sheet is completely empty
   const committeeSheet = ss.getSheetByName('Committee');
-  COMMITTEE_STARTER_ROLES.forEach(function (r) {
-    committeeSheet.appendRow([Utilities.getUuid(), '', r.role, '', '', '', r.responsibilities, r.notes]);
-  });
-  SpreadsheetApp.getUi().alert('NourishFest sheets initialized. Global Admin: ' + myEmail);
+  if (committeeSheet.getLastRow() <= 1) {
+    COMMITTEE_STARTER_ROLES.forEach(function (r) {
+      committeeSheet.appendRow([Utilities.getUuid(), '', r.role, '', '', '', r.responsibilities, r.notes]);
+    });
+  }
+
+  SpreadsheetApp.getUi().alert('NourishFest sheets initialized safely. Global Admin: ' + myEmail);
+}
+
+// Run THIS function from the dropdown to test your Gemini integration
+function testGeminiAPI() {
+  try {
+    const data = {
+      kind: 'theme',
+      prompt: 'neon cyberpunk food market'
+    };
+    
+    Logger.log('Sending request to Gemini...');
+    const result = aiGenerateText(data);
+    
+    Logger.log('SUCCESS! Gemini returned:');
+    Logger.log(JSON.stringify(result, null, 2));
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+  }
+}
+
+// Run THIS function from the dropdown to test your Gemini Image integration
+function testGeminiImageAPI() {
+  try {
+    const data = {
+      kind: 'decoration',
+      prompt: 'neon tropical entrance arch'
+    };
+    
+    Logger.log('Sending image generation request to Gemini (this may take 10-20 seconds)...');
+    const result = aiGenerateImage(data);
+    
+    Logger.log('SUCCESS! Gemini generated an image.');
+    Logger.log('Format: ' + result.mimeType);
+    Logger.log('Base64 Data Length: ' + result.imageBase64.length + ' characters');
+    Logger.log('Base64 Preview: ' + result.imageBase64.substring(0, 50) + '...');
+    
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+  }
 }
