@@ -85,6 +85,7 @@ export interface ChecklistTask {
   Deadline: string;
   Priority: Priority;
   Status: TaskStatus;
+  UpdatedBy: string;
   Notes: string;
   CreatedAt: string;
   UpdatedAt: string;

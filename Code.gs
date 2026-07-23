@@ -30,7 +30,7 @@ const SHEET_SCHEMAS = {
   Committee:         ['Id', 'Name', 'Role', 'Team', 'Phone', 'Email', 'Responsibilities', 'Notes'],
   Budget:            ['Id', 'Phase', 'EventName', 'Module', 'ItemName', 'Category', 'EstimatedCost', 'ActualCost', 'ApprovalStatus', 'Vendor', 'PIC', 'Notes', 'CreatedAt', 'UpdatedAt'],
   Proposal:          ['Id', 'Type', 'Title', 'Description', 'Price', 'Benefits', 'DisplayOrder'],
-  Checklist:         ['Id', 'Phase', 'Module', 'Task', 'Assignee', 'Deadline', 'Priority', 'Status', 'Notes', 'CreatedAt', 'UpdatedAt'],
+  Checklist:         ['Id', 'Phase', 'Module', 'Task', 'Assignee', 'Deadline', 'Priority', 'Status', 'UpdatedBy', 'Notes', 'CreatedAt', 'UpdatedAt'],
   EventInfo:         ['Id', 'Field', 'Value', 'Notes'],
   Venue:             ['Id', 'Name', 'Address', 'Capacity', 'Status', 'Cost', 'PIC', 'Notes'],
   Roster:            ['Id', 'Module', 'Name', 'Category', 'PIC', 'Vendor', 'EstimatedCost', 'ActualCost', 'Status', 'Notes', 'CreatedAt', 'UpdatedAt'],
@@ -132,7 +132,7 @@ function handleRequest(e) {
         });
       case 'update':
         return withLock(function () {
-          return jsonOut({ success: true, data: updateRow(sheetName, params.id, params.data || {}) });
+          return jsonOut({ success: true, data: updateRow(sheetName, params.id, params.data || {}, email) });
         });
       case 'delete':
         return withLock(function () {
@@ -254,7 +254,7 @@ function createRow(sheetName, data) {
   return record;
 }
 
-function updateRow(sheetName, id, data) {
+function updateRow(sheetName, id, data, email) {
   const sheet = getSheet(sheetName);
   const values = sheet.getDataRange().getValues();
   const headers = values[0];
@@ -264,6 +264,7 @@ function updateRow(sheetName, id, data) {
       const current = rowsToObjects([headers, values[i]])[0];
       const updated = Object.assign({}, current, data);
       if (headers.indexOf('UpdatedAt') !== -1) updated.UpdatedAt = new Date().toISOString();
+      if (headers.indexOf('UpdatedBy') !== -1 && data.Status !== undefined) updated.UpdatedBy = email;
       const row = headers.map(function (h) { return updated[h] !== undefined ? updated[h] : ''; });
       sheet.getRange(i + 1, 1, 1, headers.length).setValues([row]);
       return updated;

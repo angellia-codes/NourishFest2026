@@ -93,6 +93,11 @@ export function ChecklistBoard({ phase, moduleFilter, title }: { phase: Phase; m
                     <p className="text-xs text-ink/50">
                       {task.Assignee || 'Unassigned'} {task.Deadline && `· due ${task.Deadline}`}
                     </p>
+                    <p className="text-xs text-ink/40">
+                      Added {task.CreatedAt ? task.CreatedAt.slice(0, 10) : '—'}
+                      {task.UpdatedBy && ` · status by ${task.UpdatedBy}`}
+                    </p>
+                    {task.Notes && <p className="text-xs text-ink/60 italic">"{task.Notes}"</p>}
                     {canEdit && (
                       <Select
                         value={task.Status}

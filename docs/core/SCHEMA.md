@@ -108,8 +108,9 @@ Variance (`ActualCost - EstimatedCost`) is computed client-side, not stored.
 | Deadline | date string | |
 | Priority | `Low` \| `Medium` \| `High` \| `Urgent` | |
 | Status | `To Do` \| `In Progress` \| `Done` \| `Blocked` | |
+| UpdatedBy | email | who last changed `Status` |
 | Notes | string | |
-| CreatedAt / UpdatedAt | ISO datetime | |
+| CreatedAt / UpdatedAt | ISO datetime | CreatedAt = when the task was added |
 
 ### `EventInfo`
 Key/value settings table for single-value fields.
