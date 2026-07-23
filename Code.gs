@@ -47,6 +47,22 @@ const SHEET_SCHEMAS = {
   Documents:         ['Id', 'DocType', 'Title', 'ReferenceNo', 'LinkedModule', 'LinkedRecordId', 'FileUrl', 'FileId', 'FileName', 'UploadedBy', 'UploadedAt', 'Notes'],
 };
 
+// Starter rows for the Committee tab, seeded by setupSheets() — from the
+// core structure in docs/module/COMMITTEE.md. Name/Team/Phone/Email are left
+// blank for organizers to fill in as roles are assigned.
+const COMMITTEE_STARTER_ROLES = [
+  { role: 'Chairperson', responsibilities: 'Final decision-making, stakeholder alignment, and overall team leadership.', notes: 'Oversees the entire event and leads the organizing team.' },
+  { role: 'Vice Chairperson', responsibilities: 'Cross-functional coordination, milestone tracking, and dispute resolution.', notes: 'Assists the Chairperson and acts as backup when needed.' },
+  { role: 'Secretary', responsibilities: 'Meeting minutes, permit applications, scheduling, and official correspondence.', notes: 'Handles all administrative tasks & documentation.' },
+  { role: 'Treasurer', responsibilities: 'Budget tracking, vendor payments, receipt management, and financial audits.', notes: 'Manages the event budget, expenses, and financial reporting.' },
+  { role: 'Program Coordinator', responsibilities: 'Run-of-show execution, speaker/performer management, and activity timing.', notes: 'Plans the event rundown, manages MC, games, and entertainment.' },
+  { role: 'F&B Coordinator', responsibilities: 'Menu curation, managing dietary requirements, and ensuring strict food safety compliance.', notes: 'Organizes food and beverage for guests and the committee.' },
+  { role: 'Logistics, Decoration & Merch Coordinator', responsibilities: 'Venue setup, A/V equipment coordination, stage design, and swag bag distribution.', notes: 'Prepares equipment, decor, merchandise, and technical needs.' },
+  { role: 'Security Coordinator', responsibilities: 'Access control, emergency response planning, and on-site health protocols.', notes: 'Ensures safety, crowd control, and risk management.' },
+  { role: 'Documentation Coordinator', responsibilities: 'Graphic design (banners, digital assets), event photography, and videography.', notes: 'Designs merch & backdrop. Captures Photos & Videos.' },
+  { role: 'Sponsorship Coordinator', responsibilities: 'Pitching proposal packages, sponsor relationship management, and contract negotiation.', notes: 'Secures sponsorship from vendors and suppliers.' },
+];
+
 // All uploaded documents (vendor quotations, invoices, contracts, permits,
 // receipts, etc.) are saved into this single Drive folder so every
 // organizer's uploads land in one shared place regardless of whose Google
@@ -486,5 +502,10 @@ function setupSheets() {
   const permSheet = ss.getSheetByName('Permissions');
   const myEmail = Session.getActiveUser().getEmail();
   permSheet.appendRow([Utilities.getUuid(), myEmail, '*', 'Admin', 'Setup Admin']);
+  // Seed the core committee positions so organizers just fill in who's who.
+  const committeeSheet = ss.getSheetByName('Committee');
+  COMMITTEE_STARTER_ROLES.forEach(function (r) {
+    committeeSheet.appendRow([Utilities.getUuid(), '', r.role, '', '', '', r.responsibilities, r.notes]);
+  });
   SpreadsheetApp.getUi().alert('NourishFest sheets initialized. Global Admin: ' + myEmail);
 }
