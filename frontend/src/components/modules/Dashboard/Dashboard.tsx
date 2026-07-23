@@ -1,11 +1,19 @@
 import { Loader2 } from 'lucide-react';
 import { useSheetData } from '@/hooks/useSheetData';
-import type { BudgetItem, ChecklistTask, Phase, RundownItem } from '@/types';
+import { Badge } from '@/components/ui/Primitives';
+import type { BudgetItem, ChecklistTask, Phase, Priority } from '@/types';
 
 const PHASES: Phase[] = ['Pre-Event', 'Main Event'];
 
+const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'warning' | 'danger'> = {
+  Low: 'neutral',
+  Medium: 'info',
+  High: 'warning',
+  Urgent: 'danger',
+};
+
 function money(n: number) {
-  return 'RM ' + (n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return 'IDR' + (n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 function ProgressBar({ pct }: { pct: number }) {
@@ -29,17 +37,19 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export function Dashboard() {
   const budget = useSheetData<BudgetItem>('Budget');
   const checklist = useSheetData<ChecklistTask>('Checklist');
-  const rundown = useSheetData<RundownItem>('Rundown');
 
-  const isLoading = budget.isLoading || checklist.isLoading || rundown.isLoading;
+  const isLoading = budget.isLoading || checklist.isLoading;
 
-  const upcoming = [...rundown.items].sort((a, b) => a.TimeStart.localeCompare(b.TimeStart)).slice(0, 5);
+  const todo = [...checklist.items]
+    .filter((c) => c.Status !== 'Done')
+    .sort((a, b) => (a.Deadline || '9999').localeCompare(b.Deadline || '9999'))
+    .slice(0, 5);
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-2xl font-semibold">Dashboard</h2>
-        <p className="text-sm text-ink/50">A snapshot across Budget, Checklist and Rundown.</p>
+        <p className="text-sm text-ink/50">A snapshot across Budget and Checklist.</p>
       </div>
 
       {isLoading ? (
@@ -91,17 +101,18 @@ export function Dashboard() {
             </div>
           </Card>
 
-          <Card title="Up Next — Rundown">
-            {upcoming.length === 0 ? (
-              <p className="text-sm text-ink/40">No rundown segments yet.</p>
+          <Card title="To-Do">
+            {todo.length === 0 ? (
+              <p className="text-sm text-ink/40">Nothing outstanding — nice work.</p>
             ) : (
               <div className="space-y-2">
-                {upcoming.map((r) => (
-                  <div key={r.Id} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{r.Segment}</span>
-                    <span className="text-ink/50 text-xs">
-                      {r.TimeStart} – {r.TimeEnd}
-                    </span>
+                {todo.map((t) => (
+                  <div key={t.Id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium truncate">{t.Task}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {t.Deadline && <span className="text-ink/50 text-xs">{t.Deadline}</span>}
+                      <Badge tone={PRIORITY_TONE[t.Priority] ?? 'neutral'}>{t.Priority}</Badge>
+                    </div>
                   </div>
                 ))}
               </div>
