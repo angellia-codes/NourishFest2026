@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --border: 30 20% 85%;
+  --background: 40 45% 96%;
+  --foreground: 280 20% 12%;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Fraunces', serif;
+}
+
+/* Subtle grain texture behind the app shell for festival warmth without noise */
+.grain-bg {
+  background-image: radial-gradient(circle at 1px 1px, rgba(27, 20, 32, 0.04) 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(27, 20, 32, 0.2);
+  border-radius: 8px;
+}
