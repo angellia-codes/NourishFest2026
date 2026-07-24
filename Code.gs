@@ -5,8 +5,10 @@
  * SETUP
  * 1. Bind this script to your NourishFest 2026 Google Sheet
  *    (Extensions > Apps Script from inside the Sheet).
- * 2. Create all tabs listed in SCHEMA below, header row exact
- *    match, in order. Seed `Roles` before anything else.
+ * 2. Select `setupSheets` in the function dropdown and click Run. Creates
+ *    every SCHEMA tab that doesn't already exist (never touches one that
+ *    does), seeds default `Roles`, and adds you as a Chairperson `Committee`
+ *    row so you have Admin access from the first request. Safe to re-run.
  * 3. Set DRIVE_FOLDER_ID below to a Drive folder you own.
  * 4. Deploy > New deployment > Web app
  *      Execute as: Me
@@ -77,6 +79,75 @@ const PERMISSIONS = {
 };
 
 const ADMIN_ROLES = ['Chairperson', 'Vice Chairperson', 'Treasurer', 'Secretary'];
+
+// ---------- SETUP ----------
+
+// Seed rows for the `Roles` lookup tab — RoleName, DefaultResponsibility,
+// PermissionTier (informational only; the real Admin/Advisor/Member check
+// is ADMIN_ROLES / 'Advisor' above, not this column), Notes.
+const DEFAULT_ROLES = [
+  ['Chairperson', 'Overall event leadership and final sign-off', 'Admin', 'Derives Admin via ADMIN_ROLES'],
+  ['Vice Chairperson', 'Deputizes for the Chairperson', 'Admin', 'Derives Admin via ADMIN_ROLES'],
+  ['Treasurer', 'Owns Budget and Finance', 'Admin', 'Derives Admin via ADMIN_ROLES'],
+  ['Secretary', 'Owns Committee records and documentation', 'Admin', 'Derives Admin via ADMIN_ROLES'],
+  ['Advisor', 'Read-only oversight across all modules', 'Advisor', "Derives Advisor via getCurrentUser_()'s exact-match check"],
+  ['Program Coordinator', 'Runs pre-event program planning', 'Member', ''],
+  ['F&B Coordinator', 'Food & beverage sourcing and vendors', 'Member', ''],
+  ['Logistics/Decoration/Merch Coordinator', 'Venue logistics, decoration, and souvenirs', 'Member', ''],
+  ['Security Coordinator', 'Security and safety planning', 'Member', ''],
+  ['Documentation Coordinator', 'Photos, video, and event records', 'Member', ''],
+  ['Sponsorship Coordinator', 'Sponsor outreach and fulfillment', 'Member', ''],
+];
+
+/**
+ * Run once, manually, from the Apps Script editor's function dropdown after
+ * binding this script to the Sheet. Creates every SCHEMA tab that doesn't
+ * already exist (header row only — never touches a tab that's already
+ * there, so re-running later is harmless), seeds `Roles` if empty, and adds
+ * the user running this as a Chairperson `Committee` row so there's an
+ * Admin from the very first request.
+ */
+function setupSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  Object.keys(SCHEMA).forEach(function (entity) {
+    if (ss.getSheetByName(entity)) return;
+    const sheet = ss.insertSheet(entity);
+    sheet.getRange(1, 1, 1, SCHEMA[entity].length).setValues([SCHEMA[entity]]);
+    sheet.setFrozenRows(1);
+  });
+
+  seedRoles_();
+  SpreadsheetApp.flush();
+  seedSelfAsAdmin_();
+}
+
+function seedRoles_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Roles');
+  if (sheet.getLastRow() > 1) return; // already seeded — don't duplicate
+  DEFAULT_ROLES.forEach(function (row) { sheet.appendRow(row); });
+}
+
+function seedSelfAsAdmin_() {
+  const email = Session.getActiveUser().getEmail();
+  if (!email) return; // can't detect the running user outside a Workspace-domain deployment
+
+  const already = readSheet_('Committee').some(function (m) {
+    return String(m.Email).toLowerCase() === email.toLowerCase();
+  });
+  if (already) return;
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Committee');
+  sheet.appendRow([
+    generateId_('MEM'),
+    email.split('@')[0],
+    email,
+    'Committee',
+    'Chairperson',
+    lookupResponsibility_('Chairperson'),
+    'Active',
+  ]);
+}
 
 // ---------- ENTRY POINTS ----------
 
