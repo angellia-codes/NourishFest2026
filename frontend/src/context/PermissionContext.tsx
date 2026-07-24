@@ -1,46 +1,54 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../services/api';
-import type { Role } from '../types';
-
-interface PermEntry {
-  module: string;
-  role: Role;
-}
+import { ENTITY_ACCESS, type AccessLevel, type CurrentUser, type EntityName, type PermissionTier } from '../types';
 
 interface PermissionContextValue {
   email: string;
-  permissions: PermEntry[];
+  name: string;
+  tier: PermissionTier;
   loading: boolean;
-  /** true if the user has at least `minRole` on `module` (module='*' entries count everywhere) */
-  can: (module: string, minRole: Role) => boolean;
+  isAdmin: boolean;
+  /** Full access level for an entity under the caller's tier — 'special' means "has bespoke rules", not a blanket allow. */
+  accessLevel: (entity: EntityName) => AccessLevel;
+  canRead: (entity: EntityName) => boolean;
+  /** True only for 'write'. Deliberately false for 'special' — callers with special rules (Ideas, Checklist) check accessLevel() themselves. */
+  canWrite: (entity: EntityName) => boolean;
 }
-
-const RANK: Record<Role, number> = { Viewer: 1, Editor: 2, Admin: 3 };
 
 const PermissionContext = createContext<PermissionContextValue | null>(null);
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
-  const [email, setEmail] = useState('');
-  const [permissions, setPermissions] = useState<PermEntry[]>([]);
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
-      .whoami()
-      .then((res) => {
-        setEmail(res.email);
-        setPermissions(res.permissions);
-      })
+      .me()
+      .then(setUser)
       .finally(() => setLoading(false));
   }, []);
 
-  const can = (moduleName: string, minRole: Role) =>
-    permissions.some(
-      (p) => (p.module === moduleName || p.module === '*') && RANK[p.role] >= RANK[minRole],
-    );
+  const tier = user?.permission ?? 'none';
+
+  const accessLevel = (entity: EntityName): AccessLevel =>
+    tier === 'none' ? 'none' : ENTITY_ACCESS[entity][tier as 'Admin' | 'Advisor' | 'Member'] ?? 'none';
+
+  const canRead = (entity: EntityName) => accessLevel(entity) !== 'none';
+  const canWrite = (entity: EntityName) => accessLevel(entity) === 'write';
 
   return (
-    <PermissionContext.Provider value={{ email, permissions, loading, can }}>
+    <PermissionContext.Provider
+      value={{
+        email: user?.email ?? '',
+        name: user?.name ?? '',
+        tier,
+        loading,
+        isAdmin: tier === 'Admin',
+        accessLevel,
+        canRead,
+        canWrite,
+      }}
+    >
       {children}
     </PermissionContext.Provider>
   );

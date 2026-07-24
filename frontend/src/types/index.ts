@@ -1,212 +1,312 @@
 // NourishFest 2026 — shared TypeScript models
-// Mirrors backend/SCHEMA.md exactly. Field names match sheet headers 1:1
-// so objects can be sent straight to the API without remapping.
+// Mirrors Code.gs SCHEMA/PERMISSIONS exactly. Field names match sheet
+// headers 1:1 so objects can be sent straight to the API without remapping.
 
-export type Role = 'Admin' | 'Editor' | 'Viewer';
+export type PermissionTier = 'Admin' | 'Advisor' | 'Member' | 'none';
+export type AccessLevel = 'write' | 'read' | 'none' | 'special';
 
-export interface Permission {
-  Id: string;
-  Email: string;
-  Module: string; // sheet/module name, or '*'
-  Role: Role;
-  Name: string;
+export interface CurrentUser {
+  email: string;
+  name: string;
+  role: string; // raw Committee.Role value, '' if no match
+  permission: PermissionTier;
+  memberId?: string;
 }
 
-// ---------- Pre-Event ----------
+// ---------- Events ----------
+
+export type EventTypeValue = 'PreEvent' | 'MainEvent';
+
+export interface Event {
+  EventID: string;
+  EventType: EventTypeValue;
+  Month: string;
+  EventName: string;
+  CategoryOrTheme: string;
+  Purpose: string;
+  Tagline: string;
+  Date: string;
+  Location: string;
+  Status: string;
+  SourceIdeaID: string;
+}
+
+// ---------- Ideas ----------
+
+export type IdeaScope = 'PreEvent-Aug' | 'PreEvent-Sep' | 'PreEvent-Oct' | 'PreEvent-Nov' | 'MainEvent';
+
+export const IDEA_SCOPES: { value: IdeaScope; label: string }[] = [
+  { value: 'PreEvent-Aug', label: 'Pre-Event · August' },
+  { value: 'PreEvent-Sep', label: 'Pre-Event · September' },
+  { value: 'PreEvent-Oct', label: 'Pre-Event · October' },
+  { value: 'PreEvent-Nov', label: 'Pre-Event · November' },
+  { value: 'MainEvent', label: 'Main Event' },
+];
 
 export type IdeaStatus = 'New' | 'Under Review' | 'Approved' | 'Rejected' | 'Implemented';
 
 export interface Idea {
-  Id: string;
+  IdeaID: string;
+  Scope: IdeaScope;
   Title: string;
   Description: string;
-  SubmittedBy: string;
-  Category: string;
-  Votes: number;
-  Status: IdeaStatus;
-  CreatedAt: string;
-  UpdatedAt: string;
+  Theme: string;
+  Tagline: string;
+  SubmittedBy: string; // server-set
+  Votes: number; // server-set
+  Status: IdeaStatus; // server-set, default 'New'
+  DateSubmitted: string; // server-set
 }
 
-export interface CommitteeMember {
-  Id: string;
+export interface IdeaVote {
+  VoteID: string;
+  IdeaID: string;
+  VoterEmail: string;
+  DateVoted: string;
+}
+
+// ---------- Committee ----------
+
+export interface Committee {
+  MemberID: string;
   Name: string;
-  Role: string;
-  Team: string;
-  Phone: string;
   Email: string;
-  Responsibilities: string;
+  Department: string;
+  Role: string;
+  Responsibility: string; // server-derived from Roles lookup whenever Role is set — read-only in forms
+  Status: string;
+}
+
+export interface RoleDef {
+  RoleName: string;
+  DefaultResponsibility: string;
+  PermissionTier: string;
   Notes: string;
 }
 
-export type Phase = 'Pre-Event' | 'Main Event';
-export type ApprovalStatus = 'Pending' | 'Approved' | 'Partial Paid' | 'Fully Paid';
+// ---------- Budget ----------
 
-export interface BudgetItem {
-  Id: string;
-  Phase: Phase;
-  EventName: string;
-  Module: string;
+export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
+export type PaymentStatus = 'Unpaid' | 'Partially Paid' | 'Paid';
+
+export interface BudgetBreakdown {
+  BudgetID: string;
+  EventID: string;
   ItemName: string;
-  Category: string;
-  EstimatedCost: number;
-  ActualCost: number;
-  ApprovalStatus: ApprovalStatus;
-  Vendor: string;
-  PIC: string;
-  Notes: string;
-  CreatedAt: string;
-  UpdatedAt: string;
-}
-
-export type ProposalType = 'Overview' | 'Sponsorship';
-
-export interface ProposalItem {
-  Id: string;
-  Type: ProposalType;
-  Title: string;
+  CategoryExpense: string;
+  EstimationCost: number;
   Description: string;
-  Price: number;
-  Benefits: string; // newline-separated
-  DisplayOrder: number;
+  VendorName: string;
+  VendorPhone: string;
+  QuotationFileLink: string;
+  ApprovalStatus: ApprovalStatus;
+  ActualCost: number | '';
+  Variance: number | ''; // server-computed, always read-only, never sent by the client
+  InvoiceFileLink: string;
+  PaymentStatus: PaymentStatus;
+  SourceModule: string;
+  SourceRecordID: string;
 }
 
-// ---------- Checklist (shared across phases) ----------
+// ---------- Participants ----------
 
-export type Priority = 'Low' | 'Medium' | 'High' | 'Urgent';
-export type TaskStatus = 'To Do' | 'In Progress' | 'Done' | 'Blocked';
-
-export interface ChecklistTask {
-  Id: string;
-  Phase: Phase;
-  Module: string;
-  Task: string;
-  Assignee: string;
-  Deadline: string;
-  Priority: Priority;
-  Status: TaskStatus;
-  UpdatedBy: string;
-  Notes: string;
-  CreatedAt: string;
-  UpdatedAt: string;
+export interface Participants {
+  EventID: string; // doubles as this entity's ID field — 1 row per event
+  EstimationParticipant: number;
+  ActualParticipant: number;
+  AttendanceFormRef: string;
 }
 
-// ---------- Main Event ----------
+// ---------- Checklist ----------
 
-export interface EventInfoField {
-  Id: string;
-  Field: string; // 'Theme' | 'Tagline'
-  Value: string;
-  Notes: string;
-}
-
-export type VenueStatus = 'Candidate' | 'Confirmed';
-
-export interface Venue {
-  Id: string;
-  Name: string;
-  Address: string;
-  Capacity: number;
-  Status: VenueStatus;
-  Cost: number;
-  PIC: string;
-  Notes: string;
-}
-
-export const ROSTER_MODULES = [
-  'Entertainment',
-  'Door Prize',
-  'Award',
-  'Souvenir',
-  'Decoration',
-  'Mini Games',
-  'Others',
-] as const;
-export type RosterModule = (typeof ROSTER_MODULES)[number];
-
-export interface RosterItem {
-  Id: string;
-  Module: RosterModule;
-  Name: string;
-  Category: string;
-  PIC: string;
-  Vendor: string;
-  EstimatedCost: number;
-  ActualCost: number;
+export interface Checklist {
+  TaskID: string;
+  EventID: string;
+  ToDo: string;
+  Assignee: string; // email
+  DueDate: string;
   Status: string;
-  Notes: string;
-  CreatedAt: string;
-  UpdatedAt: string;
+  Remark: string;
 }
 
-export interface RundownItem {
-  Id: string;
-  TimeStart: string;
-  TimeEnd: string;
-  Segment: string;
-  PIC: string;
+export const CHECKLIST_STATUSES = ['To Do', 'In Progress', 'Done', 'Blocked'];
+
+// ---------- Main Event comparison/booking entities ----------
+
+export interface VenueComparison {
+  VenueID: string;
+  EventID: string;
+  VenueName: string;
   Location: string;
-  Notes: string;
-  Order: number;
+  ContactName: string;
+  ContactPhone: string;
+  EstimationCost: number;
+  LayoutImageLink: string;
+  BenefitsInclude: string;
+  BenefitsExclude: string;
+  ApprovalStatus: ApprovalStatus;
 }
 
-export interface TalentEntry {
-  Id: string;
-  ParticipantName: string;
-  Outlet: string;
+export interface DecorationComparison {
+  DecorID: string;
+  EventID: string;
+  DecorationName: string;
+  Vendor: string;
+  ContactName: string;
+  ContactPhone: string;
+  EstimationCost: number;
+  DesignImageLink: string;
+  BenefitsInclude: string;
+  BenefitsExclude: string;
+  ApprovalStatus: ApprovalStatus;
+}
+
+export interface SouvenirComparison {
+  SouvenirID: string;
+  EventID: string;
+  ItemName: string;
+  VendorName: string;
+  ContactName: string;
+  ContactPhone: string;
+  EstimationCost: number;
+  DesignImageLink: string;
+  BenefitsInclude: string;
+  BenefitsExclude: string;
+  ApprovalStatus: ApprovalStatus;
+}
+
+export interface Entertainment {
+  EntertainmentID: string;
+  EventID: string;
+  Activity: string;
+  Description: string;
+  ContactName: string;
+  ContactPhone: string;
+  EstimationCost: number;
+  ApprovalStatus: ApprovalStatus;
+}
+
+export interface Awards {
+  AwardID: string;
+  EventID: string;
   Category: string;
-  PerformanceOrder: number;
-  Score: number;
-  JudgeNotes: string;
-  Status: string;
+  Description: string;
+  Prize: string;
+  EstimationCost: number;
+  ApprovalStatus: ApprovalStatus;
 }
 
-export interface Participant {
-  Id: string;
-  Name: string;
-  Outlet: string;
-  RoleCategory: string;
-  Contact: string;
-  RSVPStatus: string;
-  Attendance: string;
-  Notes: string;
+export interface DoorPrize {
+  DoorPrizeID: string;
+  EventID: string;
+  Item: string;
+  Category: string;
+  DetailSpec: string;
+  ImageLink: string;
+  EstimationCost: number;
+  ApprovalStatus: ApprovalStatus;
 }
 
-// ---------- Documents (incoming: quotations, invoices, contracts, etc.) ----------
-
-export const DOC_TYPES = ['Quotation', 'Invoice', 'Contract', 'Permit', 'Receipt', 'Design', 'Other'] as const;
-export type DocType = (typeof DOC_TYPES)[number];
-
-export interface DocumentRecord {
-  Id: string;
-  DocType: DocType;
-  Title: string;
-  ReferenceNo: string;
-  LinkedModule: string; // e.g. 'Budget' | 'Roster' | ''
-  LinkedRecordId: string; // Id of the linked row, or ''
-  FileUrl: string;
-  FileId: string;
-  FileName: string;
-  UploadedBy: string;
-  UploadedAt: string;
-  Notes: string;
+export interface Rundown {
+  RundownID: string;
+  EventID: string;
+  Description: string;
+  TimeStart: string;
+  TimeFinish: string;
+  CommitteeInCharge: string;
+  Remark: string;
 }
 
-export type AIKind = 'idea' | 'theme' | 'tagline' | 'decoration';
+// ---------- Finance ----------
 
-// ---------- Sheet/module registry ----------
+export type FinanceType = 'Cash' | 'Non-Cash';
+export type FinancePaymentType = 'Bank Transfer' | 'Cash' | 'Cheque' | 'Other';
 
-export type SheetName =
-  | 'Permissions'
+export interface FinanceIncoming {
+  IncomingID: string;
+  Type: FinanceType;
+  SupplierName: string;
+  SupplierCategory: string;
+  LetterFileLink: string;
+  PaymentType: FinancePaymentType;
+  NonCashItemName: string;
+  AmountIDR: number;
+  DateReceived: string;
+  ReceiptFileLink: string;
+  Description: string;
+}
+
+// ---------- Dashboard response shapes ----------
+
+export interface DashboardData {
+  daysToNextPreEvent: number | null;
+  daysToMainEvent: number | null;
+  overdueChecklistCount: number;
+}
+
+export interface FinanceDashboardData {
+  mtdIncoming: number;
+  mtdExpenses: number;
+  variance: number;
+  pctVariance: number;
+}
+
+// ---------- Entity registry ----------
+
+export type EntityName =
+  | 'Events'
   | 'Ideas'
+  | 'IdeaVotes'
   | 'Committee'
-  | 'Budget'
-  | 'Proposal'
+  | 'Roles'
+  | 'BudgetBreakdown'
+  | 'Participants'
   | 'Checklist'
-  | 'EventInfo'
-  | 'Venue'
-  | 'Roster'
+  | 'VenueComparison'
+  | 'DecorationComparison'
+  | 'SouvenirComparison'
+  | 'Entertainment'
+  | 'Awards'
+  | 'DoorPrize'
   | 'Rundown'
-  | 'NourishGotTalent'
-  | 'ParticipantDetail'
-  | 'Documents';
+  | 'Finance_Incoming';
+
+// entity -> its unique ID column name (SCHEMA[entity][0] in Code.gs)
+export const ID_FIELD: Record<EntityName, string> = {
+  Events: 'EventID',
+  Ideas: 'IdeaID',
+  IdeaVotes: 'VoteID',
+  Committee: 'MemberID',
+  Roles: 'RoleName',
+  BudgetBreakdown: 'BudgetID',
+  Participants: 'EventID',
+  Checklist: 'TaskID',
+  VenueComparison: 'VenueID',
+  DecorationComparison: 'DecorID',
+  SouvenirComparison: 'SouvenirID',
+  Entertainment: 'EntertainmentID',
+  Awards: 'AwardID',
+  DoorPrize: 'DoorPrizeID',
+  Rundown: 'RundownID',
+  Finance_Incoming: 'IncomingID',
+};
+
+// Mirror of Code.gs's `PERMISSIONS` const — keep these two in sync by hand.
+export const ENTITY_ACCESS: Record<EntityName, Record<'Admin' | 'Advisor' | 'Member', AccessLevel>> = {
+  Events: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Ideas: { Admin: 'write', Advisor: 'read', Member: 'special' },
+  IdeaVotes: { Admin: 'read', Advisor: 'read', Member: 'special' },
+  Committee: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Roles: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  BudgetBreakdown: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Participants: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Checklist: { Admin: 'write', Advisor: 'read', Member: 'special' },
+  VenueComparison: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  DecorationComparison: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  SouvenirComparison: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Entertainment: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Awards: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  DoorPrize: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Rundown: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  Finance_Incoming: { Admin: 'write', Advisor: 'read', Member: 'none' },
+};

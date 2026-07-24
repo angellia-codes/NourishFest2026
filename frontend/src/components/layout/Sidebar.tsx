@@ -3,7 +3,6 @@ import {
   Lightbulb,
   Users,
   Wallet,
-  FileText,
   ListChecks,
   MapPin,
   Music4,
@@ -11,71 +10,76 @@ import {
   Trophy,
   Package,
   Sparkles,
-  Type,
   CalendarClock,
-  Mic2,
-  Dice5,
   UserSquare2,
-  MoreHorizontal,
-  FolderOpen,
+  Info,
+  CalendarPlus,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { usePermissions } from '@/context/PermissionContext';
-import type { Role } from '@/types';
+import type { EntityName } from '@/types';
 
 export interface NavItem {
   key: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  module: string; // permission module name (sheet name, or Roster sheet for all 7)
+  entity: EntityName;
+  requireWrite?: boolean; // Admin-only items (e.g. Event Management)
 }
 
 export interface NavGroup {
-  key: 'dashboard' | 'pre-event' | 'main-event' | 'documents';
+  key: 'overview' | 'pre-event' | 'main-event' | 'finance';
   label: string;
   items: NavItem[];
 }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    key: 'dashboard',
+    key: 'overview',
     label: 'Overview',
-    items: [{ key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'Budget' }],
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, entity: 'Events' },
+      { key: 'committee', label: 'Committee', icon: Users, entity: 'Committee' },
+      { key: 'ideas', label: 'Ideas', icon: Lightbulb, entity: 'Ideas' },
+      { key: 'event-management', label: 'Event Management', icon: CalendarPlus, entity: 'Events', requireWrite: true },
+    ],
   },
   {
     key: 'pre-event',
     label: 'Road to NourishFest',
     items: [
-      { key: 'ideas', label: 'Ideas', icon: Lightbulb, module: 'Ideas' },
-      { key: 'committee', label: 'Committee', icon: Users, module: 'Committee' },
-      { key: 'budget', label: 'Budget', icon: Wallet, module: 'Budget' },
-      { key: 'proposal', label: 'Proposal', icon: FileText, module: 'Proposal' },
-      { key: 'checklist-pre', label: 'Checklist', icon: ListChecks, module: 'Checklist' },
+      { key: 'event-details-pre', label: 'Event Details', icon: Info, entity: 'Events' },
+      { key: 'budget-pre', label: 'Budget', icon: Wallet, entity: 'BudgetBreakdown' },
+      { key: 'participants-pre', label: 'Participants', icon: UserSquare2, entity: 'Participants' },
+      { key: 'checklist-pre', label: 'Checklist', icon: ListChecks, entity: 'Checklist' },
     ],
   },
   {
     key: 'main-event',
     label: 'NourishFest',
     items: [
-      { key: 'theme-tagline', label: 'Theme & Tagline', icon: Type, module: 'EventInfo' },
-      { key: 'venue', label: 'Venue', icon: MapPin, module: 'Venue' },
-      { key: 'entertainment', label: 'Entertainment', icon: Music4, module: 'Roster' },
-      { key: 'door-prize', label: 'Door Prize', icon: Gift, module: 'Roster' },
-      { key: 'award', label: 'Award', icon: Trophy, module: 'Roster' },
-      { key: 'souvenir', label: 'Souvenir', icon: Package, module: 'Roster' },
-      { key: 'decoration', label: 'Decoration', icon: Sparkles, module: 'Roster' },
-      { key: 'mini-games', label: 'Mini Games', icon: Dice5, module: 'Roster' },
-      { key: 'others', label: 'Others', icon: MoreHorizontal, module: 'Roster' },
-      { key: 'rundown', label: 'Rundown Event', icon: CalendarClock, module: 'Rundown' },
-      { key: 'ngt', label: 'Nourish Got Talent', icon: Mic2, module: 'NourishGotTalent' },
-      { key: 'participants', label: 'Participant Detail', icon: UserSquare2, module: 'ParticipantDetail' },
-      { key: 'checklist-main', label: 'Checklist', icon: ListChecks, module: 'Checklist' },
-      { key: 'budget-main', label: 'Budget', icon: Wallet, module: 'Budget' },
+      { key: 'event-details-main', label: 'Event Details', icon: Info, entity: 'Events' },
+      { key: 'participants-main', label: 'Participants', icon: UserSquare2, entity: 'Participants' },
+      { key: 'budget-main', label: 'Budget', icon: Wallet, entity: 'BudgetBreakdown' },
+      { key: 'venue', label: 'Venue Comparison', icon: MapPin, entity: 'VenueComparison' },
+      { key: 'decoration', label: 'Decoration Comparison', icon: Sparkles, entity: 'DecorationComparison' },
+      { key: 'souvenir', label: 'Souvenir Comparison', icon: Package, entity: 'SouvenirComparison' },
+      { key: 'entertainment', label: 'Entertainment', icon: Music4, entity: 'Entertainment' },
+      { key: 'awards', label: 'Awards', icon: Trophy, entity: 'Awards' },
+      { key: 'door-prize', label: 'Door Prize', icon: Gift, entity: 'DoorPrize' },
+      { key: 'rundown', label: 'Rundown Event', icon: CalendarClock, entity: 'Rundown' },
+      { key: 'checklist-main', label: 'Checklist', icon: ListChecks, entity: 'Checklist' },
     ],
   },
   {
-    key: 'documents',
-    label: 'Documents',
-    items: [{ key: 'documents', label: 'Quotations, Invoices & Files', icon: FolderOpen, module: 'Documents' }],
+    key: 'finance',
+    label: 'Finance',
+    items: [
+      { key: 'finance-dashboard', label: 'Dashboard', icon: LayoutDashboard, entity: 'Finance_Incoming' },
+      { key: 'finance-incoming', label: 'Incoming', icon: ArrowDownCircle, entity: 'Finance_Incoming' },
+      { key: 'finance-outgoing', label: 'Outgoing', icon: ArrowUpCircle, entity: 'Finance_Incoming' },
+    ],
   },
 ];
 
@@ -85,7 +89,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ active, onSelect }: SidebarProps) {
-  const { can, loading } = usePermissions();
+  const { accessLevel, loading } = usePermissions();
 
   return (
     <aside className="w-64 shrink-0 h-screen sticky top-0 bg-ink text-paper flex flex-col grain-bg">
@@ -105,7 +109,8 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = active === item.key;
-                const allowed = loading ? true : can(item.module, 'Viewer' as Role);
+                const level = loading ? 'write' : accessLevel(item.entity);
+                const allowed = loading ? true : item.requireWrite ? level === 'write' : level !== 'none';
                 return (
                   <button
                     key={item.key}

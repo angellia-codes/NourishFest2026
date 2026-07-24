@@ -1,5 +1,11 @@
-// Generic API client for the NourishFest GAS backend.
-// One client, parametrized by sheet name, covers all 11 tabs.
+// API client for the NourishFest GAS backend (entity-based contract).
+import type {
+  CurrentUser,
+  DashboardData,
+  EntityName,
+  FinanceDashboardData,
+  Idea,
+} from '../types';
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL as string;
 
@@ -8,8 +14,8 @@ if (!BASE_URL) {
   console.warn('VITE_GAS_API_URL is not set — add it to your .env file.');
 }
 
-interface ApiResponse<T> {
-  success: boolean;
+interface Envelope<T> {
+  ok: boolean;
   data?: T;
   error?: string;
 }
@@ -21,8 +27,8 @@ async function get<T>(action: string, params: Record<string, string> = {}): Prom
     if (v !== undefined && v !== '') url.searchParams.set(k, v);
   });
   const res = await fetch(url.toString(), { credentials: 'include' });
-  const json = (await res.json()) as ApiResponse<T>;
-  if (!json.success) throw new Error(json.error || 'Request failed');
+  const json = (await res.json()) as Envelope<T>;
+  if (!json.ok) throw new Error(json.error || 'Request failed');
   return json.data as T;
 }
 
@@ -36,52 +42,26 @@ async function post<T>(action: string, body: Record<string, unknown> = {}): Prom
     body: JSON.stringify({ action, ...body }),
     credentials: 'include',
   });
-  const json = (await res.json()) as ApiResponse<T>;
-  if (!json.success) throw new Error(json.error || 'Request failed');
+  const json = (await res.json()) as Envelope<T>;
+  if (!json.ok) throw new Error(json.error || 'Request failed');
   return json.data as T;
 }
 
-export interface WhoAmI {
-  email: string;
-  permissions: { module: string; role: 'Admin' | 'Editor' | 'Viewer' }[];
-}
-
 export const api = {
-  whoami: () => get<WhoAmI>('whoami'),
-  listModules: () => get<string[]>('listModules'),
+  me: () => get<CurrentUser>('me'),
 
-  list: <T>(sheet: string, filters: Record<string, string> = {}) =>
-    get<T[]>('list', { sheet, ...filters }),
+  list: <T>(entity: EntityName, eventId?: string) =>
+    get<T[]>('list', { entity, ...(eventId ? { eventId } : {}) }),
 
-  getOne: <T>(sheet: string, id: string) => get<T>('get', { sheet, id }),
+  dashboard: () => get<DashboardData>('dashboard'),
+  financeDashboard: () => get<FinanceDashboardData>('financeDashboard'),
 
-  create: <T extends { Id: string }>(sheet: string, data: Partial<T>) =>
-    post<T>('create', { sheet, data }),
+  create: <T>(entity: EntityName, data: Partial<T>) => post<T>('create', { entity, data }),
+  update: <T>(entity: EntityName, id: string, data: Partial<T>) => post<T>('update', { entity, id, data }),
+  remove: (entity: EntityName, id: string) => post<{ deleted: string }>('delete', { entity, id }),
 
-  update: <T extends { Id: string }>(sheet: string, id: string, data: Partial<T>) =>
-    post<T>('update', { sheet, id, data }),
+  vote: (ideaId: string) => post<Idea>('vote', { entity: 'Ideas', id: ideaId }),
 
-  remove: (sheet: string, id: string) => post<{ deleted: string }>('delete', { sheet, id }),
-
-  // Uploads a PDF (already base64-encoded by the caller) into the shared
-  // Drive folder and creates its Documents row in one request.
-  uploadDocument: <T>(payload: {
-    DocType: string;
-    Title: string;
-    FileName: string;
-    MimeType: string;
-    FileBase64: string;
-    ReferenceNo?: string;
-    LinkedModule?: string;
-    LinkedRecordId?: string;
-    Notes?: string;
-  }) => post<T>('uploadDocument', { sheet: 'Documents', data: payload }),
-
-  // AI generation — owner/Admin only (backend re-checks independently of
-  // whatever the UI shows). No `sheet` param needed for these two.
-  aiGenerateText: (payload: { kind: string; prompt: string }) =>
-    post<{ suggestions: string[] }>('aiGenerateText', { data: payload }),
-
-  aiGenerateImage: (payload: { kind: string; prompt: string }) =>
-    post<{ imageBase64: string; mimeType: string }>('aiGenerateImage', { data: payload }),
+  uploadFile: (payload: { base64: string; filename: string; mimeType: string }) =>
+    post<{ url: string; id: string }>('uploadFile', { data: payload }),
 };

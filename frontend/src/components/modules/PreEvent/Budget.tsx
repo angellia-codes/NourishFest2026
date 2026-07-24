@@ -1,70 +1,96 @@
 import { useState } from 'react';
-import { Plus, Loader2, Trash2, Pencil, Paperclip } from 'lucide-react';
-import { useSheetData } from '@/hooks/useSheetData';
+import { Plus, Loader2, Trash2, Pencil } from 'lucide-react';
+import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
+import { useSelectedEvent } from '@/context/SelectedEventContext';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
-import { AttachmentsPanel } from '@/components/documents/AttachmentsPanel';
-import type { ApprovalStatus, BudgetItem, Idea, Phase } from '@/types';
+import { FileUploadField } from '@/components/shared/FileUploadField';
+import { EventRequiredNotice } from '@/components/shared/EventRequiredNotice';
+import type { ApprovalStatus, BudgetBreakdown, PaymentStatus } from '@/types';
 
-const APPROVALS: ApprovalStatus[] = ['Pending', 'Approved', 'Partial Paid', 'Fully Paid'];
-const APPROVAL_TONE: Record<ApprovalStatus, 'warning' | 'info' | 'brand' | 'success'> = {
+export function BudgetPreEventScreen() {
+  const { preEventId } = useSelectedEvent();
+  return <BudgetTable eventId={preEventId} title="Budget — Pre-Event" />;
+}
+
+export function BudgetMainEventScreen() {
+  const { mainEventId } = useSelectedEvent();
+  return <BudgetTable eventId={mainEventId} title="Budget — Main Event" />;
+}
+
+const APPROVALS: ApprovalStatus[] = ['Pending', 'Approved', 'Rejected'];
+const APPROVAL_TONE: Record<ApprovalStatus, 'warning' | 'success' | 'danger'> = {
   Pending: 'warning',
-  Approved: 'info',
-  'Partial Paid': 'brand',
-  'Fully Paid': 'success',
+  Approved: 'success',
+  Rejected: 'danger',
+};
+
+const PAYMENTS: PaymentStatus[] = ['Unpaid', 'Partially Paid', 'Paid'];
+const PAYMENT_TONE: Record<PaymentStatus, 'warning' | 'brand' | 'success'> = {
+  Unpaid: 'warning',
+  'Partially Paid': 'brand',
+  Paid: 'success',
 };
 
 const CATEGORIES = ['F&B Supplies', 'Venue & Ops', 'Marketing', 'Logistics', 'Permits/Compliance', 'Misc'];
 
-const MAIN_EVENT_NAME = 'NourishFest Main Event';
-
-function emptyForm(phase: Phase): Partial<BudgetItem> {
+function emptyForm(eventId: string): Partial<BudgetBreakdown> {
   return {
+    EventID: eventId,
     ItemName: '',
-    Category: '',
-    Module: '',
-    EventName: phase === 'Main Event' ? MAIN_EVENT_NAME : '',
-    EstimatedCost: 0,
-    ActualCost: 0,
+    CategoryExpense: '',
+    Description: '',
+    EstimationCost: 0,
+    VendorName: '',
+    VendorPhone: '',
+    QuotationFileLink: '',
     ApprovalStatus: 'Pending',
-    Vendor: '',
-    PIC: '',
-    Notes: '',
+    ActualCost: 0,
+    InvoiceFileLink: '',
+    PaymentStatus: 'Unpaid',
   };
 }
 
-/** phase='Pre-Event' | 'Main Event' — Budget rows are shared, tagged by Phase */
-export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
-  const { items, isLoading, create, update, remove, isMutating } = useSheetData<BudgetItem>('Budget', { Phase: phase });
-  const { items: approvedIdeas } = useSheetData<Idea>('Ideas', { Status: 'Approved' });
-  const { can } = usePermissions();
-  const canEdit = can('Budget', 'Editor');
+export function BudgetTable({ eventId, title }: { eventId: string | null; title: string }) {
+  const { canWrite } = usePermissions();
+  const canEdit = canWrite('BudgetBreakdown');
+
+  if (!eventId) return <EventRequiredNotice />;
+
+  return <BudgetTableInner eventId={eventId} title={title} canEdit={canEdit} />;
+}
+
+function BudgetTableInner({ eventId, title, canEdit }: { eventId: string; title: string; canEdit: boolean }) {
+  const { items, isLoading, create, update, remove, isMutating } = useEntityData<BudgetBreakdown>('BudgetBreakdown', {
+    eventId,
+  });
 
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<BudgetItem | null>(null);
-  const [form, setForm] = useState<Partial<BudgetItem>>(emptyForm(phase));
-  const [attachingItem, setAttachingItem] = useState<BudgetItem | null>(null);
+  const [editing, setEditing] = useState<BudgetBreakdown | null>(null);
+  const [form, setForm] = useState<Partial<BudgetBreakdown>>(emptyForm(eventId));
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm(phase));
+    setForm(emptyForm(eventId));
     setOpen(true);
   };
-  const openEdit = (item: BudgetItem) => {
+  const openEdit = (item: BudgetBreakdown) => {
     setEditing(item);
     setForm(item);
     setOpen(true);
   };
   const save = async () => {
-    if (editing) await update(editing.Id, form);
-    else await create({ ...form, Phase: phase });
+    if (editing) await update(editing.BudgetID, form);
+    else await create(form);
     setOpen(false);
   };
 
-  const totalEst = items.reduce((s, i) => s + Number(i.EstimatedCost || 0), 0);
+  const totalEst = items.reduce((s, i) => s + Number(i.EstimationCost || 0), 0);
   const totalActual = items.reduce((s, i) => s + Number(i.ActualCost || 0), 0);
-  const variance = totalActual - totalEst;
+  const totalVariance = items.reduce((s, i) => s + Number(i.Variance || 0), 0);
+
+  const isApproved = form.ApprovalStatus === 'Approved';
 
   return (
     <div className="space-y-4">
@@ -80,7 +106,7 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="Estimated" value={totalEst} />
         <SummaryCard label="Actual" value={totalActual} />
-        <SummaryCard label="Variance" value={variance} highlight={variance > 0 ? 'danger' : 'success'} />
+        <SummaryCard label="Variance" value={totalVariance} highlight={totalVariance > 0 ? 'danger' : 'success'} />
       </div>
 
       {isLoading ? (
@@ -93,71 +119,42 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
             <thead>
               <tr className="border-b border-ink/10 text-left text-ink/50 text-xs uppercase tracking-wide">
                 <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3">Event</th>
-                <th className="px-4 py-3">Module</th>
+                <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3 text-right">Estimated</th>
                 <th className="px-4 py-3 text-right">Actual</th>
                 <th className="px-4 py-3 text-right">Variance</th>
                 <th className="px-4 py-3">Approval</th>
-                <th className="px-4 py-3">Vendor / PIC</th>
+                <th className="px-4 py-3">Payment</th>
+                <th className="px-4 py-3">Vendor</th>
                 {canEdit && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
-                const v = Number(item.ActualCost || 0) - Number(item.EstimatedCost || 0);
+                const approved = item.ApprovalStatus === 'Approved';
+                const variance = Number(item.Variance || 0);
                 return (
-                  <tr key={item.Id} className="border-b border-ink/5 last:border-0 hover:bg-paper/60">
+                  <tr key={item.BudgetID} className="border-b border-ink/5 last:border-0 hover:bg-paper/60">
                     <td className="px-4 py-3 font-medium">{item.ItemName}</td>
-                    <td className="px-4 py-3 text-ink/60">{item.EventName}</td>
-                    <td className="px-4 py-3 text-ink/60">{item.Module}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{formatIDR(item.EstimatedCost)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {canEdit ? (
-                        <Input
-                          type="number"
-                          defaultValue={item.ActualCost}
-                          onBlur={(e) => {
-                            const next = Number(e.target.value);
-                            if (next !== item.ActualCost) update(item.Id, { ActualCost: next });
-                          }}
-                          className="w-28 text-right"
-                        />
-                      ) : (
-                        formatIDR(item.ActualCost)
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 text-right tabular-nums ${v > 0 ? 'text-red-600' : 'text-jungle'}`}>
-                      {v > 0 ? '+' : ''}
-                      {formatIDR(v)}
+                    <td className="px-4 py-3 text-ink/60">{item.CategoryExpense}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{formatIDR(item.EstimationCost)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{approved ? formatIDR(item.ActualCost) : '—'}</td>
+                    <td className={`px-4 py-3 text-right tabular-nums ${variance > 0 ? 'text-red-600' : 'text-jungle'}`}>
+                      {approved ? formatIDR(item.Variance) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      {canEdit ? (
-                        <Select
-                          value={item.ApprovalStatus}
-                          onChange={(e) => update(item.Id, { ApprovalStatus: e.target.value as ApprovalStatus })}
-                          className="w-32"
-                        >
-                          {APPROVALS.map((a) => (
-                            <option key={a} value={a}>
-                              {a}
-                            </option>
-                          ))}
-                        </Select>
-                      ) : (
-                        <Badge tone={APPROVAL_TONE[item.ApprovalStatus]}>{item.ApprovalStatus}</Badge>
-                      )}
+                      <Badge tone={APPROVAL_TONE[item.ApprovalStatus]}>{item.ApprovalStatus}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-ink/60">{[item.Vendor, item.PIC].filter(Boolean).join(' / ')}</td>
+                    <td className="px-4 py-3">
+                      {approved ? <Badge tone={PAYMENT_TONE[item.PaymentStatus]}>{item.PaymentStatus}</Badge> : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-ink/60">{[item.VendorName, item.VendorPhone].filter(Boolean).join(' / ')}</td>
                     {canEdit && (
                       <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
-                        <button onClick={() => setAttachingItem(item)} className="text-ink/40 hover:text-guava" title="Attachments">
-                          <Paperclip className="h-4 w-4" />
-                        </button>
                         <button onClick={() => openEdit(item)} className="text-ink/40 hover:text-ink">
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button onClick={() => remove(item.Id)} className="text-ink/40 hover:text-red-600">
+                        <button onClick={() => remove(item.BudgetID)} className="text-ink/40 hover:text-red-600">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
@@ -175,21 +172,9 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
           <Field label="Item Name">
             <Input value={form.ItemName ?? ''} onChange={(e) => setForm({ ...form, ItemName: e.target.value })} />
           </Field>
-          {phase === 'Pre-Event' && (
-            <Field label="Event Name">
-              <Select value={form.EventName ?? ''} onChange={(e) => setForm({ ...form, EventName: e.target.value })}>
-                <option value="">— select an approved idea —</option>
-                {approvedIdeas.map((idea) => (
-                  <option key={idea.Id} value={idea.Title}>
-                    {idea.Title}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
-              <Select value={form.Category ?? ''} onChange={(e) => setForm({ ...form, Category: e.target.value })}>
+              <Select value={form.CategoryExpense ?? ''} onChange={(e) => setForm({ ...form, CategoryExpense: e.target.value })}>
                 <option value="">— select —</option>
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
@@ -198,22 +183,18 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Module">
-              <Input value={form.Module ?? ''} onChange={(e) => setForm({ ...form, Module: e.target.value })} placeholder="e.g. Entertainment" />
-            </Field>
             <Field label="Estimated Cost (IDR)">
               <Input
                 type="number"
-                value={form.EstimatedCost ?? 0}
-                onChange={(e) => setForm({ ...form, EstimatedCost: Number(e.target.value) })}
+                value={form.EstimationCost ?? 0}
+                onChange={(e) => setForm({ ...form, EstimationCost: Number(e.target.value) })}
               />
             </Field>
-            <Field label="Actual Cost (IDR)">
-              <Input
-                type="number"
-                value={form.ActualCost ?? 0}
-                onChange={(e) => setForm({ ...form, ActualCost: Number(e.target.value) })}
-              />
+            <Field label="Vendor Name">
+              <Input value={form.VendorName ?? ''} onChange={(e) => setForm({ ...form, VendorName: e.target.value })} />
+            </Field>
+            <Field label="Vendor Phone">
+              <Input value={form.VendorPhone ?? ''} onChange={(e) => setForm({ ...form, VendorPhone: e.target.value })} />
             </Field>
             <Field label="Approval Status">
               <Select
@@ -227,15 +208,51 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Vendor/Supplier">
-              <Input value={form.Vendor ?? ''} onChange={(e) => setForm({ ...form, Vendor: e.target.value })} />
-            </Field>
-            <Field label="PIC">
-              <Input value={form.PIC ?? ''} onChange={(e) => setForm({ ...form, PIC: e.target.value })} />
+            <Field label="Quotation">
+              <FileUploadField
+                value={form.QuotationFileLink ?? ''}
+                onChange={(url) => setForm({ ...form, QuotationFileLink: url })}
+              />
             </Field>
           </div>
-          <Field label="Notes">
-            <Textarea value={form.Notes ?? ''} onChange={(e) => setForm({ ...form, Notes: e.target.value })} />
+
+          {isApproved && (
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-ink/10">
+              <Field label="Actual Cost (IDR)">
+                <Input
+                  type="number"
+                  value={form.ActualCost ?? 0}
+                  onChange={(e) => setForm({ ...form, ActualCost: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Payment Status">
+                <Select
+                  value={form.PaymentStatus}
+                  onChange={(e) => setForm({ ...form, PaymentStatus: e.target.value as PaymentStatus })}
+                >
+                  {PAYMENTS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Invoice">
+                <FileUploadField
+                  value={form.InvoiceFileLink ?? ''}
+                  onChange={(url) => setForm({ ...form, InvoiceFileLink: url })}
+                />
+              </Field>
+              {editing && (
+                <div className="text-xs text-ink/40 self-end pb-2">
+                  Variance (auto-computed): {formatIDR(editing.Variance)}
+                </div>
+              )}
+            </div>
+          )}
+
+          <Field label="Description">
+            <Textarea value={form.Description ?? ''} onChange={(e) => setForm({ ...form, Description: e.target.value })} />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -247,16 +264,6 @@ export function BudgetTable({ phase, title }: { phase: Phase; title: string }) {
           </div>
         </div>
       </Modal>
-
-      {attachingItem && (
-        <AttachmentsPanel
-          open={!!attachingItem}
-          onClose={() => setAttachingItem(null)}
-          linkedModule="Budget"
-          linkedRecordId={attachingItem.Id}
-          recordLabel={attachingItem.ItemName}
-        />
-      )}
     </div>
   );
 }
@@ -271,7 +278,7 @@ function SummaryCard({ label, value, highlight }: { label: string; value: number
   );
 }
 
-function formatIDR(value?: number) {
+function formatIDR(value?: number | string) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(
     Number(value || 0),
   );

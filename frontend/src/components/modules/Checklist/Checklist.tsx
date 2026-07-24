@@ -1,57 +1,54 @@
 import { useState } from 'react';
 import { Plus, Loader2, Trash2, AlertTriangle } from 'lucide-react';
-import { useSheetData } from '@/hooks/useSheetData';
+import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
+import { useSelectedEvent } from '@/context/SelectedEventContext';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
-import type { ChecklistTask, Phase, Priority, TaskStatus } from '@/types';
+import { EventRequiredNotice } from '@/components/shared/EventRequiredNotice';
+import { CHECKLIST_STATUSES, type Checklist } from '@/types';
 
-const COLUMNS: TaskStatus[] = ['To Do', 'In Progress', 'Done', 'Blocked'];
-const PRIORITIES: Priority[] = ['Low', 'Medium', 'High', 'Urgent'];
+const EMPTY: Partial<Checklist> = { ToDo: '', Assignee: '', DueDate: '', Status: 'To Do', Remark: '' };
 
-const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'warning' | 'danger'> = {
-  Low: 'neutral',
-  Medium: 'info',
-  High: 'warning',
-  Urgent: 'danger',
-};
+export function ChecklistPreEventScreen() {
+  const { preEventId } = useSelectedEvent();
+  return <ChecklistBoard eventId={preEventId} title="Checklist — Pre-Event" />;
+}
 
-/** phase='Pre-Event' | 'Main Event'; module lets a screen scope to e.g. only "Entertainment" tasks */
-export function ChecklistBoard({ phase, moduleFilter, title }: { phase: Phase; moduleFilter?: string; title: string }) {
-  const filters: Record<string, string> = { Phase: phase };
-  if (moduleFilter) filters.Module = moduleFilter;
+export function ChecklistMainEventScreen() {
+  const { mainEventId } = useSelectedEvent();
+  return <ChecklistBoard eventId={mainEventId} title="Checklist — Main Event" />;
+}
 
-  const { items, isLoading, create, update, remove, isMutating } = useSheetData<ChecklistTask>('Checklist', filters);
-  const { can } = usePermissions();
-  const canEdit = can('Checklist', 'Editor');
+export function ChecklistBoard({ eventId, title }: { eventId: string | null; title: string }) {
+  if (!eventId) return <EventRequiredNotice />;
+  return <ChecklistBoardInner eventId={eventId} title={title} />;
+}
+
+function ChecklistBoardInner({ eventId, title }: { eventId: string; title: string }) {
+  const { items, isLoading, create, update, remove, isMutating } = useEntityData<Checklist>('Checklist', { eventId });
+  const { accessLevel, email } = usePermissions();
+  const level = accessLevel('Checklist');
+  const canManage = level === 'write'; // create/delete + edit any task
+  const isMember = level === 'special'; // can only patch Status/Remark on own-assigned tasks
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<Partial<ChecklistTask>>({
-    Task: '',
-    Assignee: '',
-    Deadline: '',
-    Priority: 'Medium',
-    Status: 'To Do',
-    Module: moduleFilter ?? '',
-  });
+  const [form, setForm] = useState<Partial<Checklist>>(EMPTY);
 
   const submit = async () => {
-    await create({ ...form, Phase: phase });
-    setForm({ Task: '', Assignee: '', Deadline: '', Priority: 'Medium', Status: 'To Do', Module: moduleFilter ?? '' });
+    await create({ ...form, EventID: eventId });
+    setForm(EMPTY);
     setOpen(false);
   };
 
-  const isOverdue = (task: ChecklistTask) =>
-    task.Deadline && task.Status !== 'Done' && new Date(task.Deadline) < new Date();
+  const isOverdue = (task: Checklist) => !!task.DueDate && task.Status !== 'Done' && new Date(task.DueDate) < new Date();
+  const canEditTask = (task: Checklist) => canManage || (isMember && task.Assignee === email);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-semibold">{title}</h2>
-          <p className="text-sm text-ink/50">{phase} checklist{moduleFilter ? ` · ${moduleFilter}` : ''}</p>
-        </div>
-        {canEdit && (
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
+        {canManage && (
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" /> Add Task
           </Button>
@@ -64,7 +61,7 @@ export function ChecklistBoard({ phase, moduleFilter, title }: { phase: Phase; m
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {COLUMNS.map((col) => {
+          {CHECKLIST_STATUSES.map((col) => {
             const tasks = items.filter((t) => t.Status === col);
             return (
               <div key={col} className="rounded-xl bg-muted/60 p-3 space-y-2 min-h-[200px]">
@@ -72,47 +69,53 @@ export function ChecklistBoard({ phase, moduleFilter, title }: { phase: Phase; m
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{col}</p>
                   <span className="text-xs text-ink/40">{tasks.length}</span>
                 </div>
-                {tasks.map((task) => (
-                  <div key={task.Id} className="rounded-lg bg-white border border-ink/10 p-3 space-y-2 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-snug">{task.Task}</p>
-                      {canEdit && (
-                        <button onClick={() => remove(task.Id)} className="text-ink/25 hover:text-red-600 shrink-0">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge tone={PRIORITY_TONE[task.Priority]}>{task.Priority}</Badge>
+                {tasks.map((task) => {
+                  const editable = canEditTask(task);
+                  return (
+                    <div key={task.TaskID} className="rounded-lg bg-white border border-ink/10 p-3 space-y-2 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium leading-snug">{task.ToDo}</p>
+                        {canManage && (
+                          <button onClick={() => remove(task.TaskID)} className="text-ink/25 hover:text-red-600 shrink-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                       {isOverdue(task) && (
                         <Badge tone="danger">
                           <AlertTriangle className="h-3 w-3 mr-1 inline" /> Overdue
                         </Badge>
                       )}
+                      <p className="text-xs text-ink/50">
+                        {task.Assignee || 'Unassigned'} {task.DueDate && `· due ${task.DueDate}`}
+                      </p>
+                      {task.Remark && <p className="text-xs text-ink/60 italic">"{task.Remark}"</p>}
+                      {editable && (
+                        <>
+                          <Select
+                            value={task.Status}
+                            onChange={(e) => update(task.TaskID, { Status: e.target.value })}
+                            className="!py-1 text-xs"
+                          >
+                            {CHECKLIST_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </Select>
+                          <Input
+                            placeholder="Remark"
+                            defaultValue={task.Remark}
+                            onBlur={(e) => {
+                              if (e.target.value !== task.Remark) update(task.TaskID, { Remark: e.target.value });
+                            }}
+                            className="text-xs !py-1"
+                          />
+                        </>
+                      )}
                     </div>
-                    <p className="text-xs text-ink/50">
-                      {task.Assignee || 'Unassigned'} {task.Deadline && `· due ${task.Deadline}`}
-                    </p>
-                    <p className="text-xs text-ink/40">
-                      Added {task.CreatedAt ? task.CreatedAt.slice(0, 10) : '—'}
-                      {task.UpdatedBy && ` · status by ${task.UpdatedBy}`}
-                    </p>
-                    {task.Notes && <p className="text-xs text-ink/60 italic">"{task.Notes}"</p>}
-                    {canEdit && (
-                      <Select
-                        value={task.Status}
-                        onChange={(e) => update(task.Id, { Status: e.target.value as TaskStatus })}
-                        className="!py-1 text-xs"
-                      >
-                        {COLUMNS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}
@@ -121,46 +124,25 @@ export function ChecklistBoard({ phase, moduleFilter, title }: { phase: Phase; m
 
       <Modal open={open} onClose={() => setOpen(false)} title="Add Task">
         <div className="space-y-3">
-          <Field label="Task">
-            <Input value={form.Task ?? ''} onChange={(e) => setForm({ ...form, Task: e.target.value })} />
+          <Field label="To Do">
+            <Input value={form.ToDo ?? ''} onChange={(e) => setForm({ ...form, ToDo: e.target.value })} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Assignee">
+            <Field label="Assignee (email)">
               <Input value={form.Assignee ?? ''} onChange={(e) => setForm({ ...form, Assignee: e.target.value })} />
             </Field>
-            <Field label="Deadline">
-              <Input
-                type="date"
-                value={form.Deadline ?? ''}
-                onChange={(e) => setForm({ ...form, Deadline: e.target.value })}
-              />
-            </Field>
-            <Field label="Priority">
-              <Select value={form.Priority} onChange={(e) => setForm({ ...form, Priority: e.target.value as Priority })}>
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Module">
-              <Input
-                value={form.Module ?? ''}
-                onChange={(e) => setForm({ ...form, Module: e.target.value })}
-                placeholder="e.g. Entertainment"
-                disabled={!!moduleFilter}
-              />
+            <Field label="Due Date">
+              <Input type="date" value={form.DueDate ?? ''} onChange={(e) => setForm({ ...form, DueDate: e.target.value })} />
             </Field>
           </div>
-          <Field label="Notes">
-            <Textarea value={form.Notes ?? ''} onChange={(e) => setForm({ ...form, Notes: e.target.value })} />
+          <Field label="Remark">
+            <Textarea value={form.Remark ?? ''} onChange={(e) => setForm({ ...form, Remark: e.target.value })} />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submit} disabled={isMutating || !form.Task}>
+            <Button onClick={submit} disabled={isMutating || !form.ToDo}>
               {isMutating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </Button>
           </div>

@@ -1,29 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { useSheetData } from '@/hooks/useSheetData';
-import { Badge } from '@/components/ui/Primitives';
-import type { BudgetItem, ChecklistTask, Phase, Priority } from '@/types';
-
-const PHASES: Phase[] = ['Pre-Event', 'Main Event'];
-
-const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'warning' | 'danger'> = {
-  Low: 'neutral',
-  Medium: 'info',
-  High: 'warning',
-  Urgent: 'danger',
-};
-
-function money(n: number) {
-  return 'IDR' + (n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
-}
-
-function ProgressBar({ pct }: { pct: number }) {
-  const tone = pct >= 100 ? 'bg-jungle' : pct >= 50 ? 'bg-guava' : 'bg-sun';
-  return (
-    <div className="h-2 rounded-full bg-ink/8 overflow-hidden">
-      <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
-    </div>
-  );
-}
+import { api } from '@/services/api';
+import { useEntityData } from '@/hooks/useEntityData';
+import type { Checklist, Event } from '@/types';
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -34,22 +13,34 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-ink/10 bg-white p-4">
+      <p className="text-xs uppercase tracking-wide text-ink/50">{label}</p>
+      <p className="font-display text-2xl font-semibold mt-1">{value}</p>
+    </div>
+  );
+}
+
 export function Dashboard() {
-  const budget = useSheetData<BudgetItem>('Budget');
-  const checklist = useSheetData<ChecklistTask>('Checklist');
+  const { data, isLoading: dashLoading } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard });
+  const { items: checklist, isLoading: checklistLoading } = useEntityData<Checklist>('Checklist');
+  const { items: events } = useEntityData<Event>('Events');
 
-  const isLoading = budget.isLoading || checklist.isLoading;
+  const isLoading = dashLoading || checklistLoading;
 
-  const todo = [...checklist.items]
-    .filter((c) => c.Status !== 'Done')
-    .sort((a, b) => (a.Deadline || '9999').localeCompare(b.Deadline || '9999'))
+  const eventName = (eventId: string) => events.find((e) => e.EventID === eventId)?.EventName ?? '';
+
+  const todo = [...checklist]
+    .filter((t) => t.Status !== 'Done')
+    .sort((a, b) => (a.DueDate || '9999').localeCompare(b.DueDate || '9999'))
     .slice(0, 5);
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-2xl font-semibold">Dashboard</h2>
-        <p className="text-sm text-ink/50">A snapshot across Budget and Checklist.</p>
+        <p className="text-sm text-ink/50">A snapshot across all events.</p>
       </div>
 
       {isLoading ? (
@@ -57,68 +48,37 @@ export function Dashboard() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard…
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card title="Budget">
-            <div className="space-y-3">
-              {PHASES.map((phase) => {
-                const rows = budget.items.filter((b) => b.Phase === phase);
-                const estimated = rows.reduce((s, r) => s + Number(r.EstimatedCost || 0), 0);
-                const actual = rows.reduce((s, r) => s + Number(r.ActualCost || 0), 0);
-                const pct = estimated > 0 ? (actual / estimated) * 100 : 0;
-                return (
-                  <div key={phase} className="space-y-1">
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span className="font-medium">{phase}</span>
-                      <span className="text-ink/50">
-                        {money(actual)} / {money(estimated)}
-                      </span>
-                    </div>
-                    <ProgressBar pct={pct} />
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatTile
+              label="Days to Next Pre-Event"
+              value={data?.daysToNextPreEvent != null ? String(data.daysToNextPreEvent) : '—'}
+            />
+            <StatTile
+              label="Days to Main Event"
+              value={data?.daysToMainEvent != null ? String(data.daysToMainEvent) : '—'}
+            />
+            <StatTile label="Overdue Checklist Tasks" value={String(data?.overdueChecklistCount ?? 0)} />
+          </div>
 
-          <Card title="Checklist Progress">
-            <div className="space-y-3">
-              {PHASES.map((phase) => {
-                const rows = checklist.items.filter((c) => c.Phase === phase);
-                const done = rows.filter((c) => c.Status === 'Done').length;
-                const pct = rows.length > 0 ? (done / rows.length) * 100 : 0;
-                return (
-                  <div key={phase} className="space-y-1">
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span className="font-medium">{phase}</span>
-                      <span className="text-ink/50">
-                        {done} / {rows.length} done
-                      </span>
-                    </div>
-                    <ProgressBar pct={pct} />
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card title="To-Do">
+          <Card title="Outstanding Tasks">
             {todo.length === 0 ? (
               <p className="text-sm text-ink/40">Nothing outstanding — nice work.</p>
             ) : (
               <div className="space-y-2">
                 {todo.map((t) => (
-                  <div key={t.Id} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium truncate">{t.Task}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {t.Deadline && <span className="text-ink/50 text-xs">{t.Deadline}</span>}
-                      <Badge tone={PRIORITY_TONE[t.Priority] ?? 'neutral'}>{t.Priority}</Badge>
+                  <div key={t.TaskID} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium truncate">{t.ToDo}</span>
+                    <div className="flex items-center gap-2 shrink-0 text-ink/50 text-xs">
+                      {eventName(t.EventID) && <span>{eventName(t.EventID)}</span>}
+                      {t.DueDate && <span>due {t.DueDate}</span>}
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </Card>
-        </div>
+        </>
       )}
     </div>
   );
