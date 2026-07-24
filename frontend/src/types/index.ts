@@ -70,16 +70,8 @@ export interface Idea {
   Theme: string;
   Tagline: string;
   SubmittedBy: string; // server-set
-  Votes: number; // server-set
   Status: IdeaStatus; // server-set, default 'New'
   DateSubmitted: string; // server-set
-}
-
-export interface IdeaVote {
-  VoteID: string;
-  IdeaID: string;
-  VoterEmail: string;
-  DateVoted: string;
 }
 
 // ---------- Committee ----------
@@ -305,7 +297,6 @@ export interface FinanceDashboardData {
 export type EntityName =
   | 'Events'
   | 'Ideas'
-  | 'IdeaVotes'
   | 'Committee'
   | 'Roles'
   | 'BudgetBreakdown'
@@ -325,7 +316,6 @@ export type EntityName =
 export const ID_FIELD: Record<EntityName, string> = {
   Events: 'EventID',
   Ideas: 'IdeaID',
-  IdeaVotes: 'VoteID',
   Committee: 'MemberID',
   Roles: 'RoleName',
   BudgetBreakdown: 'BudgetID',
@@ -346,7 +336,6 @@ export const ID_FIELD: Record<EntityName, string> = {
 export const ENTITY_ACCESS: Record<EntityName, Record<'Admin' | 'Advisor' | 'Member', AccessLevel>> = {
   Events: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Ideas: { Admin: 'write', Advisor: 'read', Member: 'special' },
-  IdeaVotes: { Admin: 'read', Advisor: 'read', Member: 'special' },
   Committee: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Roles: { Admin: 'write', Advisor: 'read', Member: 'read' },
   BudgetBreakdown: { Admin: 'write', Advisor: 'read', Member: 'read' },

@@ -29,7 +29,7 @@
  * GET  ?action=list&entity=Events[&eventId=...]
  * GET  ?action=dashboard
  * GET  ?action=financeDashboard
- * POST body (JSON): { action: 'create'|'update'|'delete'|'vote'|'uploadFile'|'aiGenerate',
+ * POST body (JSON): { action: 'create'|'update'|'delete'|'uploadFile'|'aiGenerate',
  *                      entity, id, data }
  *
  * CORS NOTE: Apps Script Web Apps don't reliably handle OPTIONS
@@ -49,8 +49,7 @@ const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 // the unique ID field the generic CRUD helpers key off of.
 const SCHEMA = {
   Events: ['EventID', 'EventType', 'Month', 'EventName', 'CategoryOrTheme', 'Category', 'Purpose', 'Tagline', 'Date', 'Location', 'Status', 'SourceIdeaID'],
-  Ideas: ['IdeaID', 'Scope', 'Title', 'Description', 'Category', 'Theme', 'Tagline', 'SubmittedBy', 'Votes', 'Status', 'DateSubmitted'],
-  IdeaVotes: ['VoteID', 'IdeaID', 'VoterEmail', 'DateVoted'],
+  Ideas: ['IdeaID', 'Scope', 'Title', 'Description', 'Category', 'Theme', 'Tagline', 'SubmittedBy', 'Status', 'DateSubmitted'],
   Committee: ['MemberID', 'Name', 'Email', 'Department', 'Role', 'Responsibility', 'Status'],
   Roles: ['RoleName', 'DefaultResponsibility', 'PermissionTier', 'Notes'],
   BudgetBreakdown: ['BudgetID', 'EventID', 'ItemName', 'CategoryExpense', 'EstimationCost', 'Description', 'VendorName', 'VendorPhone', 'QuotationFileLink', 'ApprovalStatus', 'ActualCost', 'Variance', 'InvoiceFileLink', 'PaymentStatus', 'SourceModule', 'SourceRecordID'],
@@ -72,7 +71,6 @@ const SCHEMA = {
 const PERMISSIONS = {
   Events: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Ideas: { Admin: 'write', Advisor: 'read', Member: 'special' },
-  IdeaVotes: { Admin: 'read', Advisor: 'read', Member: 'special' },
   Committee: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Roles: { Admin: 'write', Advisor: 'read', Member: 'read' },
   BudgetBreakdown: { Admin: 'write', Advisor: 'read', Member: 'read' },
@@ -224,7 +222,6 @@ function doPost(e) {
       case 'create': result = createRecord_(entity, data, user); break;
       case 'update': result = updateRecord_(entity, id, data, user); break;
       case 'delete': result = deleteRecord_(entity, id, user); break;
-      case 'vote': result = voteIdea_(id, user); break;
       case 'uploadFile': result = uploadFile_(data); break;
       case 'aiGenerate': result = aiGenerate_(data, user); break;
       default: throw new Error('Unknown action: ' + action);
@@ -506,28 +503,10 @@ function createIdea_(data, user) {
 
   data.IdeaID = generateId_('IDEA');
   data.SubmittedBy = user.email;
-  data.Votes = 0;
   data.Status = data.Status || 'New';
   data.DateSubmitted = new Date().toISOString();
   writeRow_('Ideas', data);
   return data;
-}
-
-// Enforces: 1 vote per idea per user, repeatable across different ideas (per PRD Section 6.1).
-function voteIdea_(ideaId, user) {
-  if (user.permission === 'none' || user.permission === 'Advisor') {
-    throw new Error('Not permitted to vote');
-  }
-  const votes = readSheet_('IdeaVotes');
-  const already = votes.some(function (v) { return v.IdeaID === ideaId && v.VoterEmail === user.email; });
-  if (already) throw new Error('You already voted for this idea');
-
-  writeRow_('IdeaVotes', { VoteID: generateId_('VOTE'), IdeaID: ideaId, VoterEmail: user.email, DateVoted: new Date().toISOString() });
-
-  const idea = readSheet_('Ideas').find(function (i) { return i.IdeaID === ideaId; });
-  if (!idea) throw new Error('Idea not found: ' + ideaId);
-  const newVotes = (Number(idea.Votes) || 0) + 1;
-  return updateRow_('Ideas', ideaId, { Votes: newVotes });
 }
 
 // Members can only touch Status/Remark, and only on tasks assigned to them.

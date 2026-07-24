@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { Plus, ThumbsUp, Loader2, Trash2 } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Loader2, Trash2 } from 'lucide-react';
 import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
-import { api } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
 import { AIPromptBox } from '@/components/shared/AIPromptBox';
@@ -22,13 +20,11 @@ const STATUS_TONE: Record<IdeaStatus, 'neutral' | 'info' | 'success' | 'danger' 
 interface IdeaCardProps {
   idea: Idea;
   canManage: boolean;
-  canVote: boolean;
-  onVote: (idea: Idea) => void;
   onStatusChange: (idea: Idea, status: IdeaStatus) => void;
   onRemove: (idea: Idea) => void;
 }
 
-function IdeaCard({ idea, canManage, canVote, onVote, onStatusChange, onRemove }: IdeaCardProps) {
+function IdeaCard({ idea, canManage, onStatusChange, onRemove }: IdeaCardProps) {
   return (
     <div className="rounded-xl border border-ink/10 bg-white p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
@@ -42,13 +38,6 @@ function IdeaCard({ idea, canManage, canVote, onVote, onStatusChange, onRemove }
       <div className="flex items-center justify-between pt-2 border-t border-ink/5 text-xs text-ink/50">
         <span>by {idea.SubmittedBy || 'Unknown'}</span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => canVote && onVote(idea)}
-            disabled={!canVote}
-            className="flex items-center gap-1 rounded-full bg-jungle/10 text-jungle px-2 py-1 hover:bg-jungle/20 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ThumbsUp className="h-3.5 w-3.5" /> {idea.Votes ?? 0}
-          </button>
           {canManage && (
             <>
               <Select
@@ -75,17 +64,10 @@ function IdeaCard({ idea, canManage, canVote, onVote, onStatusChange, onRemove }
 
 export function IdeasBoard() {
   const { items, isLoading, create, update, remove, isMutating } = useEntityData<Idea>('Ideas');
-  const { accessLevel, canWrite, tier } = usePermissions();
-  const qc = useQueryClient();
+  const { accessLevel, canWrite } = usePermissions();
   const level = accessLevel('Ideas');
   const canSubmit = level === 'write' || level === 'special';
   const canManage = canWrite('Ideas');
-  const canVote = tier === 'Admin' || tier === 'Member'; // backend hard-blocks Advisor/none regardless of the entity matrix
-
-  const voteMutation = useMutation({
-    mutationFn: (ideaId: string) => api.vote(ideaId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['Ideas'] }),
-  });
 
   const [activeScope, setActiveScope] = useState<IdeaScope | null>(null);
   const [form, setForm] = useState<Partial<Idea>>({ Title: '', Description: '', Category: '', Theme: '', Tagline: '' });
@@ -108,18 +90,19 @@ export function IdeasBoard() {
     }
   };
 
-  const vote = (idea: Idea) => voteMutation.mutate(idea.IdeaID);
   const setStatus = (idea: Idea, status: IdeaStatus) => update(idea.IdeaID, { Status: status });
   const removeIdea = (idea: Idea) => remove(idea.IdeaID);
 
   const forScope = (scope: IdeaScope) =>
-    [...items].filter((i) => i.Scope === scope).sort((a, b) => Number(b.Votes) - Number(a.Votes));
+    [...items]
+      .filter((i) => i.Scope === scope)
+      .sort((a, b) => (b.DateSubmitted ?? '').localeCompare(a.DateSubmitted ?? ''));
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="font-display text-2xl font-semibold">Ideas</h2>
-        <p className="text-sm text-ink/50">Ranked by votes — one submission per person per event.</p>
+        <p className="text-sm text-ink/50">One submission per person per event.</p>
       </div>
 
       {isLoading ? (
@@ -144,8 +127,6 @@ export function IdeasBoard() {
                   key={idea.IdeaID}
                   idea={idea}
                   canManage={canManage}
-                  canVote={canVote}
-                  onVote={vote}
                   onStatusChange={setStatus}
                   onRemove={removeIdea}
                 />

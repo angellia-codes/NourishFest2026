@@ -4,7 +4,6 @@ import type {
   DashboardData,
   EntityName,
   FinanceDashboardData,
-  Idea,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL as string;
@@ -59,8 +58,6 @@ export const api = {
   create: <T>(entity: EntityName, data: Partial<T>) => post<T>('create', { entity, data }),
   update: <T>(entity: EntityName, id: string, data: Partial<T>) => post<T>('update', { entity, id, data }),
   remove: (entity: EntityName, id: string) => post<{ deleted: string }>('delete', { entity, id }),
-
-  vote: (ideaId: string) => post<Idea>('vote', { entity: 'Ideas', id: ideaId }),
 
   uploadFile: (payload: { base64: string; filename: string; mimeType: string }) =>
     post<{ url: string; id: string }>('uploadFile', { data: payload }),
