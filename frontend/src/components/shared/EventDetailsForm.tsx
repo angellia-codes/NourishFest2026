@@ -4,9 +4,9 @@ import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
 import { useSelectedEvent } from '@/context/SelectedEventContext';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, Textarea } from '@/components/ui/Primitives';
+import { Field, Input, Select, Textarea } from '@/components/ui/Primitives';
 import { EventRequiredNotice } from './EventRequiredNotice';
-import type { Event } from '@/types';
+import { EVENT_CATEGORIES, type Event } from '@/types';
 
 export function EventDetailsPreScreen() {
   const { preEventId } = useSelectedEvent();
@@ -61,6 +61,20 @@ function EventDetailsFormInner({ eventId, canEdit }: { eventId: string; canEdit:
               value={form.CategoryOrTheme ?? ''}
               onChange={(e) => setForm({ ...form, CategoryOrTheme: e.target.value })}
             />
+          </Field>
+          <Field label="Category">
+            <Select
+              disabled={!canEdit}
+              value={form.Category ?? ''}
+              onChange={(e) => setForm({ ...form, Category: e.target.value as Event['Category'] })}
+            >
+              <option value="">— select —</option>
+              {EVENT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Tagline">
             <Input disabled={!canEdit} value={form.Tagline ?? ''} onChange={(e) => setForm({ ...form, Tagline: e.target.value })} />

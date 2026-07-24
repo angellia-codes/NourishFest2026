@@ -8,6 +8,15 @@ const FIELDS: FieldConfig<Entertainment>[] = [
   { key: 'Description', label: 'Description', type: 'textarea', hideInTable: true },
   { key: 'ContactName', label: 'Contact Name', type: 'text' },
   { key: 'ContactPhone', label: 'Contact Phone', type: 'text' },
+  { key: 'Quantity', label: 'Quantity', type: 'number' },
+  { key: 'Unit', label: 'Unit', type: 'text' },
+  { key: 'Price', label: 'Price (IDR)', type: 'number' },
+  {
+    key: 'TotalEstimationCost',
+    label: 'Total Estimation Cost',
+    type: 'number',
+    computed: (f) => (Number(f.Quantity) || 0) * (Number(f.Price) || 0),
+  },
   { key: 'EstimationCost', label: 'Estimated Cost', type: 'number' },
   { key: 'ApprovalStatus', label: 'Approval', type: 'select', options: ['Pending', 'Approved', 'Rejected'] },
 ];

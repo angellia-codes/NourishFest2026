@@ -9,11 +9,19 @@
  *    every SCHEMA tab that doesn't already exist (never touches one that
  *    does), seeds default `Roles`, and adds you as a Chairperson `Committee`
  *    row so you have Admin access from the first request. Safe to re-run.
+ *    If you're updating an existing Sheet whose tabs already existed before
+ *    a SCHEMA change (new columns added to an entity), also run
+ *    `migrateAddColumns_` once — setupSheets() only creates missing tabs,
+ *    it never backfills columns onto ones that already exist.
  * 3. Set DRIVE_FOLDER_ID below to a Drive folder you own.
- * 4. Deploy > New deployment > Web app
+ * 4. Set a Gemini API key for the Ideas AI-suggestions box: Project Settings
+ *    > Script Properties > add GEMINI_API_KEY = <your key> (create one at
+ *    https://aistudio.google.com/apikey). Skip this if you don't need AI
+ *    generation — every other feature works without it.
+ * 5. Deploy > New deployment > Web app
  *      Execute as: Me
  *      Who has access: Anyone within [your Workspace domain]
- * 5. Every code change needs a new deployment version
+ * 6. Every code change needs a new deployment version
  *    (Manage deployments > Edit > New version) to go live.
  *
  * FRONTEND CONTRACT
@@ -21,7 +29,7 @@
  * GET  ?action=list&entity=Events[&eventId=...]
  * GET  ?action=dashboard
  * GET  ?action=financeDashboard
- * POST body (JSON): { action: 'create'|'update'|'delete'|'vote'|'uploadFile',
+ * POST body (JSON): { action: 'create'|'update'|'delete'|'vote'|'uploadFile'|'aiGenerate',
  *                      entity, id, data }
  *
  * CORS NOTE: Apps Script Web Apps don't reliably handle OPTIONS
@@ -35,26 +43,28 @@
 // ---------- CONFIG ----------
 
 const DRIVE_FOLDER_ID = '14SvD4c1Q2AxZ79p2CUmz_XM29nxxf9LA';
+const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 
 // entity -> ordered column headers. CONVENTION: column [0] is always
 // the unique ID field the generic CRUD helpers key off of.
 const SCHEMA = {
-  Events: ['EventID', 'EventType', 'Month', 'EventName', 'CategoryOrTheme', 'Purpose', 'Tagline', 'Date', 'Location', 'Status', 'SourceIdeaID'],
-  Ideas: ['IdeaID', 'Scope', 'Title', 'Description', 'Theme', 'Tagline', 'SubmittedBy', 'Votes', 'Status', 'DateSubmitted'],
+  Events: ['EventID', 'EventType', 'Month', 'EventName', 'CategoryOrTheme', 'Category', 'Purpose', 'Tagline', 'Date', 'Location', 'Status', 'SourceIdeaID'],
+  Ideas: ['IdeaID', 'Scope', 'Title', 'Description', 'Category', 'Theme', 'Tagline', 'SubmittedBy', 'Votes', 'Status', 'DateSubmitted'],
   IdeaVotes: ['VoteID', 'IdeaID', 'VoterEmail', 'DateVoted'],
   Committee: ['MemberID', 'Name', 'Email', 'Department', 'Role', 'Responsibility', 'Status'],
   Roles: ['RoleName', 'DefaultResponsibility', 'PermissionTier', 'Notes'],
   BudgetBreakdown: ['BudgetID', 'EventID', 'ItemName', 'CategoryExpense', 'EstimationCost', 'Description', 'VendorName', 'VendorPhone', 'QuotationFileLink', 'ApprovalStatus', 'ActualCost', 'Variance', 'InvoiceFileLink', 'PaymentStatus', 'SourceModule', 'SourceRecordID'],
   Participants: ['EventID', 'EstimationParticipant', 'ActualParticipant', 'AttendanceFormRef'], // EventID doubles as ID: 1 row per event
   Checklist: ['TaskID', 'EventID', 'ToDo', 'Assignee', 'DueDate', 'Status', 'Remark'],
-  VenueComparison: ['VenueID', 'EventID', 'VenueName', 'Location', 'ContactName', 'ContactPhone', 'EstimationCost', 'LayoutImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
-  DecorationComparison: ['DecorID', 'EventID', 'DecorationName', 'Vendor', 'ContactName', 'ContactPhone', 'EstimationCost', 'DesignImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
-  SouvenirComparison: ['SouvenirID', 'EventID', 'ItemName', 'VendorName', 'ContactName', 'ContactPhone', 'EstimationCost', 'DesignImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
-  Entertainment: ['EntertainmentID', 'EventID', 'Activity', 'Description', 'ContactName', 'ContactPhone', 'EstimationCost', 'ApprovalStatus'],
-  Awards: ['AwardID', 'EventID', 'Category', 'Description', 'Prize', 'EstimationCost', 'ApprovalStatus'],
-  DoorPrize: ['DoorPrizeID', 'EventID', 'Item', 'Category', 'DetailSpec', 'ImageLink', 'EstimationCost', 'ApprovalStatus'],
+  VenueComparison: ['VenueID', 'EventID', 'VenueName', 'Location', 'ContactName', 'ContactPhone', 'Quantity', 'Unit', 'Price', 'TotalEstimationCost', 'EstimationCost', 'LayoutImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
+  DecorationComparison: ['DecorID', 'EventID', 'DecorationName', 'Vendor', 'ContactName', 'ContactPhone', 'Quantity', 'Unit', 'Price', 'TotalEstimationCost', 'EstimationCost', 'DesignImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
+  SouvenirComparison: ['SouvenirID', 'EventID', 'ItemName', 'VendorName', 'ContactName', 'ContactPhone', 'Quantity', 'Unit', 'Price', 'TotalEstimationCost', 'EstimationCost', 'DesignImageLink', 'BenefitsInclude', 'BenefitsExclude', 'ApprovalStatus'],
+  Entertainment: ['EntertainmentID', 'EventID', 'Activity', 'Description', 'ContactName', 'ContactPhone', 'Quantity', 'Unit', 'Price', 'TotalEstimationCost', 'EstimationCost', 'ApprovalStatus'],
+  Awards: ['AwardID', 'EventID', 'Category', 'Description', 'Prize', 'Value', 'EstimationCost', 'ApprovalStatus'],
+  DoorPrize: ['DoorPrizeID', 'EventID', 'Item', 'Category', 'DetailSpec', 'ImageLink', 'Quantity', 'Unit', 'Price', 'TotalEstimationCost', 'EstimationCost', 'ApprovalStatus'],
   Rundown: ['RundownID', 'EventID', 'Description', 'TimeStart', 'TimeFinish', 'CommitteeInCharge', 'Remark'],
   Finance_Incoming: ['IncomingID', 'Type', 'SupplierName', 'SupplierCategory', 'LetterFileLink', 'PaymentType', 'NonCashItemName', 'AmountIDR', 'DateReceived', 'ReceiptFileLink', 'Description'],
+  NourishGotTalent: ['TalentID', 'EventID', 'Category', 'Prize', 'Value', 'ApprovalStatus'],
 };
 
 // entity -> { Admin, Advisor, Member } access level:
@@ -76,6 +86,7 @@ const PERMISSIONS = {
   DoorPrize: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Rundown: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Finance_Incoming: { Admin: 'write', Advisor: 'read', Member: 'none' },
+  NourishGotTalent: { Admin: 'write', Advisor: 'read', Member: 'read' },
 };
 
 const ADMIN_ROLES = ['Chairperson', 'Vice Chairperson', 'Treasurer', 'Secretary'];
@@ -126,6 +137,41 @@ function seedRoles_() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Roles');
   if (sheet.getLastRow() > 1) return; // already seeded — don't duplicate
   DEFAULT_ROLES.forEach(function (row) { sheet.appendRow(row); });
+}
+
+/**
+ * Run once, manually, from the Apps Script editor after adding new columns to
+ * SCHEMA for an entity whose sheet tab already exists — setupSheets() only
+ * creates tabs that don't exist yet, it never backfills columns onto one
+ * that's already there. writeRow_/updateRow_ write values positionally in
+ * SCHEMA[entity]'s declared order, so new columns must be inserted at their
+ * exact SCHEMA position (not just appended at the end) or every write
+ * misaligns with the sheet's actual header row. Existing headers are assumed
+ * to be a subsequence of SCHEMA[entity] in the same relative order (columns
+ * are only ever added here, never reordered/renamed) — walk both in
+ * lockstep, inserting a blank column wherever SCHEMA has a header the sheet
+ * doesn't have yet. insertColumnBefore() shifts existing data (and
+ * not-yet-matched headers) right, keeping every old column aligned with its
+ * original header.
+ */
+function migrateAddColumns_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.keys(SCHEMA).forEach(function (entity) {
+    const sheet = ss.getSheetByName(entity);
+    if (!sheet) return; // net-new entity — setupSheets() will create it instead
+    const lastCol = sheet.getLastColumn();
+    let remaining = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+
+    SCHEMA[entity].forEach(function (header, i) {
+      const col = i + 1;
+      if (remaining[0] === header) {
+        remaining = remaining.slice(1);
+        return;
+      }
+      sheet.insertColumnBefore(col);
+      sheet.getRange(1, col).setValue(header);
+    });
+  });
 }
 
 function seedSelfAsAdmin_() {
@@ -180,6 +226,7 @@ function doPost(e) {
       case 'delete': result = deleteRecord_(entity, id, user); break;
       case 'vote': result = voteIdea_(id, user); break;
       case 'uploadFile': result = uploadFile_(data); break;
+      case 'aiGenerate': result = aiGenerate_(data, user); break;
       default: throw new Error('Unknown action: ' + action);
     }
     return jsonOut_({ ok: true, data: result });
@@ -310,6 +357,7 @@ function createRecord_(entity, data, user) {
 
   if (entity === 'Committee') data.Responsibility = lookupResponsibility_(data.Role);
   if (entity === 'BudgetBreakdown') data.Variance = computeVariance_(data);
+  if (QTY_PRICE_ENTITIES.indexOf(entity) !== -1) data.TotalEstimationCost = computeTotalEstimationCost_(data);
 
   writeRow_(entity, data);
   return data;
@@ -329,6 +377,12 @@ function updateRecord_(entity, id, data, user) {
     const merged = Object.assign({}, current, data);
     data.Variance = computeVariance_(merged);
   }
+  if (QTY_PRICE_ENTITIES.indexOf(entity) !== -1) {
+    const idField = SCHEMA[entity][0];
+    const current = readSheet_(entity).find(function (r) { return String(r[idField]) === String(id); });
+    const merged = Object.assign({}, current, data);
+    data.TotalEstimationCost = computeTotalEstimationCost_(merged);
+  }
 
   return updateRow_(entity, id, data);
 }
@@ -347,6 +401,93 @@ function computeVariance_(row) {
   return (row.ApprovalStatus === 'Approved' && row.ActualCost !== '' && row.ActualCost !== undefined)
     ? act - est
     : '';
+}
+
+// Entities with a Quantity/Price -> TotalEstimationCost auto-calculation.
+const QTY_PRICE_ENTITIES = ['DoorPrize', 'SouvenirComparison', 'VenueComparison', 'DecorationComparison', 'Entertainment'];
+
+function computeTotalEstimationCost_(row) {
+  return (Number(row.Quantity) || 0) * (Number(row.Price) || 0);
+}
+
+// ---------- AI GENERATION (Gemini) ----------
+
+function getGeminiApiKey() {
+  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!key) throw new Error('Gemini API key not set. Set GEMINI_API_KEY in Project Settings > Script Properties.');
+  return key;
+}
+
+// No backing sheet entity for AI generation, so there's no checkAccess_()
+// call here — gate directly on the user's permission tier instead.
+function aiGenerate_(data, user) {
+  if (user.permission !== 'Admin') throw new Error('AI generation is Admin-only');
+
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_TEXT_MODEL + ':generateContent';
+  const payload = {
+    contents: [{ role: 'user', parts: [{ text: buildTextPrompt_(data.kind, data.prompt) }] }],
+    generationConfig: {
+      temperature: 0.9,
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'ARRAY', items: { type: 'STRING' } },
+    },
+  };
+  const json = callGemini_(url, payload);
+  const text = (json.candidates[0].content.parts || []).map(function (p) { return p.text || ''; }).join('');
+  let suggestions;
+  try {
+    suggestions = JSON.parse(text);
+  } catch (err) {
+    suggestions = [text];
+  }
+  return { suggestions: suggestions };
+}
+
+function callGemini_(url, payload) {
+  const res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-goog-api-key': getGeminiApiKey() },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+
+  const statusCode = res.getResponseCode();
+  const rawText = res.getContentText();
+
+  if (statusCode >= 400) throw new Error('Gemini API HTTP Error ' + statusCode + ': ' + rawText);
+
+  let json;
+  try {
+    json = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error('Failed to parse Gemini response: ' + rawText);
+  }
+
+  if (json.error) throw new Error('Gemini error: ' + json.error.message);
+  if (!json.candidates || !json.candidates.length) throw new Error('Gemini returned no candidates (possibly blocked by safety filters).');
+
+  return json;
+}
+
+function buildTextPrompt_(kind, userPrompt) {
+  const context = userPrompt
+    ? 'Context/keywords from the organizer: "' + userPrompt + '"'
+    : 'No specific keywords given — offer fresh, on-brand options.';
+  const base =
+    'You are helping plan NourishFest 2026, an internal company festival for Nourish Group Indonesia ' +
+    '(an F&B/hospitality company). ' + context + ' ' +
+    'Return exactly 5 short, distinct suggestions as a JSON array of strings — no numbering, no markdown, no explanations.';
+  switch (kind) {
+    case 'theme':
+      return base + ' Each item is a catchy EVENT THEME name, 3-6 words, vibrant and festival-appropriate.';
+    case 'tagline':
+      return base + ' Each item is a short TAGLINE, max 8 words, that could sit under the event theme.';
+    case 'idea':
+      return base + ' Each item is a one-sentence ACTIVITY OR PROGRAM IDEA for the festival (games, performances, booths, etc.).';
+    default:
+      return base;
+  }
 }
 
 function lookupResponsibility_(role) {

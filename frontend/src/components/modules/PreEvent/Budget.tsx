@@ -33,7 +33,14 @@ const PAYMENT_TONE: Record<PaymentStatus, 'warning' | 'brand' | 'success'> = {
   Paid: 'success',
 };
 
-const CATEGORIES = ['F&B Supplies', 'Venue & Ops', 'Marketing', 'Logistics', 'Permits/Compliance', 'Misc'];
+const CATEGORIES = [
+  '🏢 Venue & Operations',
+  '🍽️ Food, Beverage & Compliance',
+  '📢 Marketing & Design',
+  '🎤 Program & Production',
+  '👥 Team Welfare & Engagement',
+  '📦 Logistics & Administration',
+];
 
 function emptyForm(eventId: string): Partial<BudgetBreakdown> {
   return {

@@ -10,9 +10,11 @@ import type { EntityName } from '@/types';
 export interface FieldConfig<T> {
   key: keyof T & string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'select' | 'file';
+  type: 'text' | 'textarea' | 'number' | 'select' | 'file' | 'date';
   options?: readonly string[]; // for type='select'
   hideInTable?: boolean; // long fields (e.g. Benefits/Description) shown in the modal only, not as a column
+  readOnly?: boolean; // renders as a disabled input instead of an editable control
+  computed?: (form: Partial<T>) => number; // live-recomputed from current form state; implies readOnly
 }
 
 export interface EntityCrudTableProps<T extends object> {
@@ -167,10 +169,20 @@ export function EntityCrudTable<T extends object>({
             const value = form[f.key];
             return (
               <Field key={f.key} label={f.label}>
-                {f.type === 'textarea' ? (
-                  <Textarea value={(value as string) ?? ''} onChange={(e) => setFieldValue(f.key, e.target.value)} />
+                {f.computed ? (
+                  <Input type="text" disabled value={formatIDR(f.computed(form))} onChange={() => {}} />
+                ) : f.type === 'textarea' ? (
+                  <Textarea
+                    disabled={f.readOnly}
+                    value={(value as string) ?? ''}
+                    onChange={(e) => setFieldValue(f.key, e.target.value)}
+                  />
                 ) : f.type === 'select' ? (
-                  <Select value={(value as string) ?? ''} onChange={(e) => setFieldValue(f.key, e.target.value)}>
+                  <Select
+                    disabled={f.readOnly}
+                    value={(value as string) ?? ''}
+                    onChange={(e) => setFieldValue(f.key, e.target.value)}
+                  >
                     {(f.options ?? []).map((o) => (
                       <option key={o} value={o}>
                         {o}
@@ -180,13 +192,25 @@ export function EntityCrudTable<T extends object>({
                 ) : f.type === 'number' ? (
                   <Input
                     type="number"
+                    disabled={f.readOnly}
                     value={(value as number) ?? 0}
                     onChange={(e) => setFieldValue(f.key, Number(e.target.value))}
                   />
                 ) : f.type === 'file' ? (
                   <FileUploadField value={(value as string) ?? ''} onChange={(url) => setFieldValue(f.key, url)} />
+                ) : f.type === 'date' ? (
+                  <Input
+                    type="date"
+                    disabled={f.readOnly}
+                    value={(value as string) ?? ''}
+                    onChange={(e) => setFieldValue(f.key, e.target.value)}
+                  />
                 ) : (
-                  <Input value={(value as string) ?? ''} onChange={(e) => setFieldValue(f.key, e.target.value)} />
+                  <Input
+                    disabled={f.readOnly}
+                    value={(value as string) ?? ''}
+                    onChange={(e) => setFieldValue(f.key, e.target.value)}
+                  />
                 )}
               </Field>
             );

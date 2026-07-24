@@ -1,27 +1,25 @@
 import { EntityCrudTable, type FieldConfig } from '@/components/shared/EntityCrudTable';
 import { EventRequiredNotice } from '@/components/shared/EventRequiredNotice';
 import { useSelectedEvent } from '@/context/SelectedEventContext';
-import type { Awards } from '@/types';
+import type { NourishGotTalent } from '@/types';
 
-const FIELDS: FieldConfig<Awards>[] = [
+const FIELDS: FieldConfig<NourishGotTalent>[] = [
   { key: 'Category', label: 'Category', type: 'text' },
-  { key: 'Description', label: 'Description', type: 'textarea', hideInTable: true },
   { key: 'Prize', label: 'Prize', type: 'select', options: ['Cash', 'Voucher'] },
   { key: 'Value', label: 'Value (IDR)', type: 'number' },
-  { key: 'EstimationCost', label: 'Estimated Cost', type: 'number' },
   { key: 'ApprovalStatus', label: 'Approval', type: 'select', options: ['Pending', 'Approved', 'Rejected'] },
 ];
 
-export function AwardsScreen() {
+export function NourishGotTalentScreen() {
   const { mainEventId } = useSelectedEvent();
   if (!mainEventId) return <EventRequiredNotice label="the Main Event" />;
   return (
-    <EntityCrudTable<Awards>
-      entity="Awards"
-      title="Awards"
+    <EntityCrudTable<NourishGotTalent>
+      entity="NourishGotTalent"
+      title="Nourish Got Talent"
       fields={FIELDS}
       eventId={mainEventId}
-      addLabel="Add Award"
+      addLabel="Add Entry"
     />
   );
 }

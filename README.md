@@ -129,7 +129,7 @@ per-event Event Details, Budget (event-scoped, server-computed Variance,
 Approved-gated Actual Cost/Payment fields), Participants (aggregate
 counts per event), Checklist (kanban, own-task-only editing for Members),
 Venue/Decoration/Souvenir Comparison, Entertainment, Awards, Door Prize,
-Rundown, and the Finance module (Dashboard/Incoming/Outgoing).
+Rundown, and the Finance module (Dashboard/Income/Expense).
 
 If you want a new screen for a near-identical entity, follow the
 `EntityCrudTable` pattern (a field-config array, no new component); for

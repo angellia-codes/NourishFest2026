@@ -25,3 +25,18 @@ export function RundownTimeline() {
     />
   );
 }
+
+export function RundownPreScreen() {
+  const { preEventId } = useSelectedEvent();
+  if (!preEventId) return <EventRequiredNotice label="this Pre-Event month" />;
+  return (
+    <EntityCrudTable<Rundown>
+      entity="Rundown"
+      title="Rundown"
+      fields={FIELDS}
+      eventId={preEventId}
+      sortBy="TimeStart"
+      addLabel="Add Segment"
+    />
+  );
+}

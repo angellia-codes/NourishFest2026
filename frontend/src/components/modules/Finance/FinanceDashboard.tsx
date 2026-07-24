@@ -34,7 +34,7 @@ export function FinanceDashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatTile label="MTD Incoming" value={formatIDR(data?.mtdIncoming)} />
+          <StatTile label="MTD Income" value={formatIDR(data?.mtdIncoming)} />
           <StatTile label="MTD Expenses" value={formatIDR(data?.mtdExpenses)} />
           <StatTile
             label="Variance"

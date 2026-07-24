@@ -17,12 +17,28 @@ export interface CurrentUser {
 
 export type EventTypeValue = 'PreEvent' | 'MainEvent';
 
+export type EventCategory =
+  | '🍽️ Culinary & F&B Core'
+  | '🏃 Health & Active Lifestyle'
+  | '📚 Professional Development & Education'
+  | '🌍 Community & CSR'
+  | '🎉 Entertainment & Networking';
+
+export const EVENT_CATEGORIES: EventCategory[] = [
+  '🍽️ Culinary & F&B Core',
+  '🏃 Health & Active Lifestyle',
+  '📚 Professional Development & Education',
+  '🌍 Community & CSR',
+  '🎉 Entertainment & Networking',
+];
+
 export interface Event {
   EventID: string;
   EventType: EventTypeValue;
   Month: string;
   EventName: string;
   CategoryOrTheme: string;
+  Category: EventCategory | '';
   Purpose: string;
   Tagline: string;
   Date: string;
@@ -50,6 +66,7 @@ export interface Idea {
   Scope: IdeaScope;
   Title: string;
   Description: string;
+  Category: EventCategory | '';
   Theme: string;
   Tagline: string;
   SubmittedBy: string; // server-set
@@ -133,6 +150,8 @@ export const CHECKLIST_STATUSES = ['To Do', 'In Progress', 'Done', 'Blocked'];
 
 // ---------- Main Event comparison/booking entities ----------
 
+export type PrizeType = 'Cash' | 'Voucher';
+
 export interface VenueComparison {
   VenueID: string;
   EventID: string;
@@ -140,6 +159,10 @@ export interface VenueComparison {
   Location: string;
   ContactName: string;
   ContactPhone: string;
+  Quantity: number;
+  Unit: string;
+  Price: number;
+  TotalEstimationCost: number; // server-computed (Quantity * Price), read-only
   EstimationCost: number;
   LayoutImageLink: string;
   BenefitsInclude: string;
@@ -154,6 +177,10 @@ export interface DecorationComparison {
   Vendor: string;
   ContactName: string;
   ContactPhone: string;
+  Quantity: number;
+  Unit: string;
+  Price: number;
+  TotalEstimationCost: number; // server-computed (Quantity * Price), read-only
   EstimationCost: number;
   DesignImageLink: string;
   BenefitsInclude: string;
@@ -168,6 +195,10 @@ export interface SouvenirComparison {
   VendorName: string;
   ContactName: string;
   ContactPhone: string;
+  Quantity: number;
+  Unit: string;
+  Price: number;
+  TotalEstimationCost: number; // server-computed (Quantity * Price), read-only
   EstimationCost: number;
   DesignImageLink: string;
   BenefitsInclude: string;
@@ -182,6 +213,10 @@ export interface Entertainment {
   Description: string;
   ContactName: string;
   ContactPhone: string;
+  Quantity: number;
+  Unit: string;
+  Price: number;
+  TotalEstimationCost: number; // server-computed (Quantity * Price), read-only
   EstimationCost: number;
   ApprovalStatus: ApprovalStatus;
 }
@@ -191,7 +226,8 @@ export interface Awards {
   EventID: string;
   Category: string;
   Description: string;
-  Prize: string;
+  Prize: PrizeType;
+  Value: number;
   EstimationCost: number;
   ApprovalStatus: ApprovalStatus;
 }
@@ -203,7 +239,20 @@ export interface DoorPrize {
   Category: string;
   DetailSpec: string;
   ImageLink: string;
+  Quantity: number;
+  Unit: string;
+  Price: number;
+  TotalEstimationCost: number; // server-computed (Quantity * Price), read-only
   EstimationCost: number;
+  ApprovalStatus: ApprovalStatus;
+}
+
+export interface NourishGotTalent {
+  TalentID: string;
+  EventID: string;
+  Category: string;
+  Prize: PrizeType;
+  Value: number;
   ApprovalStatus: ApprovalStatus;
 }
 
@@ -269,7 +318,8 @@ export type EntityName =
   | 'Awards'
   | 'DoorPrize'
   | 'Rundown'
-  | 'Finance_Incoming';
+  | 'Finance_Incoming'
+  | 'NourishGotTalent';
 
 // entity -> its unique ID column name (SCHEMA[entity][0] in Code.gs)
 export const ID_FIELD: Record<EntityName, string> = {
@@ -289,6 +339,7 @@ export const ID_FIELD: Record<EntityName, string> = {
   DoorPrize: 'DoorPrizeID',
   Rundown: 'RundownID',
   Finance_Incoming: 'IncomingID',
+  NourishGotTalent: 'TalentID',
 };
 
 // Mirror of Code.gs's `PERMISSIONS` const — keep these two in sync by hand.
@@ -309,4 +360,5 @@ export const ENTITY_ACCESS: Record<EntityName, Record<'Admin' | 'Advisor' | 'Mem
   DoorPrize: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Rundown: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Finance_Incoming: { Admin: 'write', Advisor: 'read', Member: 'none' },
+  NourishGotTalent: { Admin: 'write', Advisor: 'read', Member: 'read' },
 };

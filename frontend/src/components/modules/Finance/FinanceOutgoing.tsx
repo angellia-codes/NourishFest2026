@@ -22,7 +22,7 @@ export function FinanceOutgoing() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl font-semibold">Outgoing</h2>
+          <h2 className="font-display text-2xl font-semibold">Expense</h2>
           <p className="text-sm text-ink/50">Paid Budget line items, across all events.</p>
         </div>
         <div className="rounded-xl border border-ink/10 bg-white p-4">

@@ -8,6 +8,15 @@ const FIELDS: FieldConfig<SouvenirComparison>[] = [
   { key: 'VendorName', label: 'Vendor Name', type: 'text' },
   { key: 'ContactName', label: 'Contact Name', type: 'text' },
   { key: 'ContactPhone', label: 'Contact Phone', type: 'text' },
+  { key: 'Quantity', label: 'Quantity', type: 'number' },
+  { key: 'Unit', label: 'Unit', type: 'text' },
+  { key: 'Price', label: 'Price (IDR)', type: 'number' },
+  {
+    key: 'TotalEstimationCost',
+    label: 'Total Estimation Cost',
+    type: 'number',
+    computed: (f) => (Number(f.Quantity) || 0) * (Number(f.Price) || 0),
+  },
   { key: 'EstimationCost', label: 'Estimated Cost', type: 'number' },
   { key: 'DesignImageLink', label: 'Design Image', type: 'file' },
   { key: 'BenefitsInclude', label: 'Benefits Included', type: 'textarea', hideInTable: true },
@@ -21,10 +30,10 @@ export function SouvenirComparisonScreen() {
   return (
     <EntityCrudTable<SouvenirComparison>
       entity="SouvenirComparison"
-      title="Souvenir Comparison"
+      title="Merchandise"
       fields={FIELDS}
       eventId={mainEventId}
-      addLabel="Add Souvenir"
+      addLabel="Add Merchandise"
     />
   );
 }

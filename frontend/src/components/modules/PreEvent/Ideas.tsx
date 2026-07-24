@@ -6,7 +6,8 @@ import { usePermissions } from '@/context/PermissionContext';
 import { api } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
-import { IDEA_SCOPES, type Idea, type IdeaScope, type IdeaStatus } from '@/types';
+import { AIPromptBox } from '@/components/shared/AIPromptBox';
+import { EVENT_CATEGORIES, IDEA_SCOPES, type Idea, type IdeaScope, type IdeaStatus } from '@/types';
 
 const STATUSES: IdeaStatus[] = ['New', 'Under Review', 'Approved', 'Rejected', 'Implemented'];
 
@@ -87,12 +88,12 @@ export function IdeasBoard() {
   });
 
   const [activeScope, setActiveScope] = useState<IdeaScope | null>(null);
-  const [form, setForm] = useState<Partial<Idea>>({ Title: '', Description: '', Theme: '', Tagline: '' });
+  const [form, setForm] = useState<Partial<Idea>>({ Title: '', Description: '', Category: '', Theme: '', Tagline: '' });
   const [submitError, setSubmitError] = useState('');
 
   const openFor = (scope: IdeaScope) => {
     setActiveScope(scope);
-    setForm({ Title: '', Description: '', Theme: '', Tagline: '' });
+    setForm({ Title: '', Description: '', Category: '', Theme: '', Tagline: '' });
     setSubmitError('');
   };
 
@@ -169,6 +170,20 @@ export function IdeasBoard() {
           <Field label="Description">
             <Textarea value={form.Description ?? ''} onChange={(e) => setForm({ ...form, Description: e.target.value })} />
           </Field>
+          <AIPromptBox kind="idea" label="AI Suggestions" onPick={(s) => setForm((f) => ({ ...f, Description: s }))} />
+          <Field label="Category">
+            <Select
+              value={form.Category ?? ''}
+              onChange={(e) => setForm({ ...form, Category: e.target.value as Idea['Category'] })}
+            >
+              <option value="">— select —</option>
+              {EVENT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Theme">
               <Input value={form.Theme ?? ''} onChange={(e) => setForm({ ...form, Theme: e.target.value })} />
@@ -176,6 +191,10 @@ export function IdeasBoard() {
             <Field label="Tagline">
               <Input value={form.Tagline ?? ''} onChange={(e) => setForm({ ...form, Tagline: e.target.value })} />
             </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <AIPromptBox kind="theme" label="AI Theme Ideas" onPick={(s) => setForm((f) => ({ ...f, Theme: s }))} />
+            <AIPromptBox kind="tagline" label="AI Tagline Ideas" onPick={(s) => setForm((f) => ({ ...f, Tagline: s }))} />
           </div>
           {submitError && <p className="text-xs text-red-600">{submitError}</p>}
           <div className="flex justify-end gap-2 pt-2">

@@ -64,4 +64,7 @@ export const api = {
 
   uploadFile: (payload: { base64: string; filename: string; mimeType: string }) =>
     post<{ url: string; id: string }>('uploadFile', { data: payload }),
+
+  aiGenerate: (kind: 'theme' | 'tagline' | 'idea', prompt: string) =>
+    post<{ suggestions: string[] }>('aiGenerate', { data: { kind, prompt } }),
 };

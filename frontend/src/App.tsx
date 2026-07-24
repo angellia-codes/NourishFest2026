@@ -18,7 +18,8 @@ import { SouvenirComparisonScreen } from '@/components/modules/MainEvent/Souveni
 import { EntertainmentScreen } from '@/components/modules/MainEvent/Entertainment';
 import { AwardsScreen } from '@/components/modules/MainEvent/Awards';
 import { DoorPrizeScreen } from '@/components/modules/MainEvent/DoorPrize';
-import { RundownTimeline } from '@/components/modules/MainEvent/Rundown';
+import { NourishGotTalentScreen } from '@/components/modules/MainEvent/NourishGotTalent';
+import { RundownTimeline, RundownPreScreen } from '@/components/modules/MainEvent/Rundown';
 import { FinanceDashboard } from '@/components/modules/Finance/FinanceDashboard';
 import { FinanceIncomingScreen } from '@/components/modules/Finance/FinanceIncoming';
 import { FinanceOutgoing } from '@/components/modules/Finance/FinanceOutgoing';
@@ -32,6 +33,7 @@ const SCREENS: Record<string, React.ComponentType> = {
   'event-details-pre': EventDetailsPreScreen,
   'budget-pre': BudgetPreEventScreen,
   'participants-pre': ParticipantsPreScreen,
+  'rundown-pre': RundownPreScreen,
   'checklist-pre': ChecklistPreEventScreen,
 
   'event-details-main': EventDetailsMainScreen,
@@ -43,6 +45,7 @@ const SCREENS: Record<string, React.ComponentType> = {
   entertainment: EntertainmentScreen,
   awards: AwardsScreen,
   'door-prize': DoorPrizeScreen,
+  'nourish-got-talent': NourishGotTalentScreen,
   rundown: RundownTimeline,
   'checklist-main': ChecklistMainEventScreen,
 
