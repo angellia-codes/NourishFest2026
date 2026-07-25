@@ -58,7 +58,7 @@
 
 const DRIVE_FOLDER_ID = '14SvD4c1Q2AxZ79p2CUmz_XM29nxxf9LA';
 const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
-const GOOGLE_CLIENT_ID = 'PASTE_YOUR_OAUTH_CLIENT_ID_HERE';
+const GOOGLE_CLIENT_ID = '372315509623-bbnudghnnkqg3daddbv97pmvitg364nt.apps.googleusercontent.com';
 
 // entity -> ordered column headers. CONVENTION: column [0] is always
 // the unique ID field the generic CRUD helpers key off of.
