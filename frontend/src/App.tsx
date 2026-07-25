@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, LogOut } from 'lucide-react';
 import { Sidebar, NAV_GROUPS } from '@/components/layout/Sidebar';
 import { usePermissions } from '@/context/PermissionContext';
+import { useAuth } from '@/context/AuthContext';
 import { useSelectedEvent } from '@/context/SelectedEventContext';
 import { Select } from '@/components/ui/Primitives';
+import { GoogleSignInButton } from '@/components/shared/GoogleSignInButton';
 import { Dashboard } from '@/components/modules/Dashboard/Dashboard';
 import { IdeasBoard } from '@/components/modules/PreEvent/Ideas';
 import { CommitteeGrid } from '@/components/modules/PreEvent/Committee';
@@ -74,7 +76,8 @@ function PreEventPicker() {
 
 export default function App() {
   const [active, setActive] = useState('dashboard');
-  const { email, loading } = usePermissions();
+  const { email, tier, loading } = usePermissions();
+  const { signOut } = useAuth();
   const Screen = SCREENS[active] ?? Dashboard;
   const activeGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.key === active));
 
@@ -87,12 +90,23 @@ export default function App() {
             <p className="text-xs text-ink/40">NourishFest 2026 · Event Management App</p>
             {activeGroup?.key === 'pre-event' && <PreEventPicker />}
           </div>
-          {!loading && !email && (
+          {!loading && !email && <GoogleSignInButton />}
+          {!loading && email && tier === 'none' && (
             <span className="flex items-center gap-1.5 text-xs text-red-600">
-              <ShieldAlert className="h-3.5 w-3.5" /> Not signed in — no modules will be editable
+              <ShieldAlert className="h-3.5 w-3.5" /> Signed in as {email} — not a recognized committee member
             </span>
           )}
-          {email && <span className="text-xs text-ink/50">{email}</span>}
+          {email && tier !== 'none' && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-ink/50">{email}</span>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-1 text-xs text-ink/40 hover:text-ink/70"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Sign out
+              </button>
+            </div>
+          )}
         </header>
         <div className="px-6 py-6 max-w-6xl">
           <Screen />

@@ -18,19 +18,33 @@
  *    > Script Properties > add GEMINI_API_KEY = <your key> (create one at
  *    https://aistudio.google.com/apikey). Skip this if you don't need AI
  *    generation — every other feature works without it.
- * 5. Deploy > New deployment > Web app
+ * 5. Create an OAuth 2.0 Client ID (Google Cloud Console > APIs & Services >
+ *    Credentials > Create Credentials > OAuth client ID > Web application),
+ *    with your frontend's URL(s) — including http://localhost:5173 for dev
+ *    — as Authorized JavaScript origins. Paste the Client ID into
+ *    GOOGLE_CLIENT_ID below. This is what lets the frontend's Google
+ *    Sign-In button issue tokens this backend can verify — it's not a
+ *    secret, it's fine hardcoded here.
+ * 6. Deploy > New deployment > Web app
  *      Execute as: Me
- *      Who has access: Anyone within [your Workspace domain]
- * 6. Every code change needs a new deployment version
+ *      Who has access: Anyone
+ *    ("Anyone" is required, not just convenient — user identity now comes
+ *    from the verified Google Sign-In token below, not from
+ *    Session.getActiveUser(), which Apps Script only populates for
+ *    Workspace-domain-restricted deployments anyway.)
+ * 7. Every code change needs a new deployment version
  *    (Manage deployments > Edit > New version) to go live.
  *
  * FRONTEND CONTRACT
- * GET  ?action=me
- * GET  ?action=list&entity=Events[&eventId=...]
- * GET  ?action=dashboard
- * GET  ?action=financeDashboard
+ * GET  ?action=me&idToken=...
+ * GET  ?action=list&entity=Events&idToken=...[&eventId=...]
+ * GET  ?action=dashboard&idToken=...
+ * GET  ?action=financeDashboard&idToken=...
  * POST body (JSON): { action: 'create'|'update'|'delete'|'uploadFile'|'aiGenerate',
- *                      entity, id, data }
+ *                      entity, id, data, idToken }
+ * `idToken` is the Google Sign-In (Identity Services) ID token from the
+ * frontend's sign-in button — verified server-side against Google's
+ * tokeninfo endpoint in verifyGoogleIdToken_(), never trusted as-is.
  *
  * CORS NOTE: Apps Script Web Apps don't reliably handle OPTIONS
  * preflight. Send POST requests from the frontend with
@@ -44,6 +58,7 @@
 
 const DRIVE_FOLDER_ID = '14SvD4c1Q2AxZ79p2CUmz_XM29nxxf9LA';
 const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
+const GOOGLE_CLIENT_ID = 'PASTE_YOUR_OAUTH_CLIENT_ID_HERE';
 
 // entity -> ordered column headers. CONVENTION: column [0] is always
 // the unique ID field the generic CRUD helpers key off of.
@@ -198,7 +213,7 @@ function seedSelfAsAdmin_() {
 function doGet(e) {
   try {
     const action = e.parameter.action;
-    const user = getCurrentUser_();
+    const user = getCurrentUser_(e.parameter.idToken);
 
     if (action === 'me') return jsonOut_({ ok: true, data: user });
     if (action === 'list') return jsonOut_({ ok: true, data: listEntity_(e.parameter.entity, user, e.parameter) });
@@ -214,7 +229,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
-    const user = getCurrentUser_();
+    const user = getCurrentUser_(body.idToken);
     const action = body.action, entity = body.entity, id = body.id, data = body.data;
 
     let result;
@@ -234,8 +249,31 @@ function doPost(e) {
 
 // ---------- AUTH / PERMISSIONS ----------
 
-function getCurrentUser_() {
-  const email = Session.getActiveUser().getEmail();
+// Verifies a Google Identity Services ID token against Google's tokeninfo
+// endpoint (no JWT-signature library needed — Google's own endpoint checks
+// the signature and expiry for us). Returns null on any invalid/expired/
+// wrong-audience token instead of throwing, so callers can treat it the same
+// as "not signed in."
+function verifyGoogleIdToken_(idToken) {
+  if (!idToken) return null;
+  try {
+    const res = UrlFetchApp.fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+      { muteHttpExceptions: true }
+    );
+    if (res.getResponseCode() !== 200) return null;
+    const payload = JSON.parse(res.getContentText());
+    if (payload.aud !== GOOGLE_CLIENT_ID) return null;
+    if (payload.email_verified !== 'true' && payload.email_verified !== true) return null;
+    return { email: payload.email, name: payload.name || '' };
+  } catch (err) {
+    return null;
+  }
+}
+
+function getCurrentUser_(idToken) {
+  const verified = verifyGoogleIdToken_(idToken);
+  const email = verified ? verified.email : '';
   if (!email) return { email: '', name: '', role: '', permission: 'none' };
 
   const committee = readSheet_('Committee');

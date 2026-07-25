@@ -19,9 +19,20 @@ interface Envelope<T> {
   error?: string;
 }
 
+// Google Sign-In ID token, set by AuthContext once the user signs in. Sent
+// with every request so Code.gs can verify identity — Apps Script Web Apps
+// don't expose custom request headers to doGet/doPost, so it travels as a
+// normal query param (GET) / body field (POST) instead.
+let idToken: string | null = null;
+
+export function setIdToken(token: string | null) {
+  idToken = token;
+}
+
 async function get<T>(action: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(BASE_URL);
   url.searchParams.set('action', action);
+  if (idToken) url.searchParams.set('idToken', idToken);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== '') url.searchParams.set(k, v);
   });
@@ -38,7 +49,7 @@ async function post<T>(action: string, body: Record<string, unknown> = {}): Prom
     // request — Apps Script Web Apps don't implement doOptions, so a real
     // preflight would fail. The backend still JSON.parses the body.
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, ...body }),
+    body: JSON.stringify({ action, idToken, ...body }),
     credentials: 'include',
   });
   const json = (await res.json()) as Envelope<T>;

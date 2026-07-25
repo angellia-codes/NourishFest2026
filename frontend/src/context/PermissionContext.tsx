@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../services/api';
+import { useAuth } from './AuthContext';
 import { ENTITY_ACCESS, type AccessLevel, type CurrentUser, type EntityName, type PermissionTier } from '../types';
 
 interface PermissionContextValue {
@@ -18,15 +19,17 @@ interface PermissionContextValue {
 const PermissionContext = createContext<PermissionContextValue | null>(null);
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
+  const { idToken } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     api
       .me()
       .then(setUser)
       .finally(() => setLoading(false));
-  }, []);
+  }, [idToken]);
 
   const tier = user?.permission ?? 'none';
 
