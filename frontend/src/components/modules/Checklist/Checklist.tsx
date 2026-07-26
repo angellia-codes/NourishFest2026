@@ -127,7 +127,7 @@ function ChecklistBoardInner({ eventId, title }: { eventId: string; title: strin
           <Field label="To Do">
             <Input value={form.ToDo ?? ''} onChange={(e) => setForm({ ...form, ToDo: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Assignee (email)">
               <Input value={form.Assignee ?? ''} onChange={(e) => setForm({ ...form, Assignee: e.target.value })} />
             </Field>

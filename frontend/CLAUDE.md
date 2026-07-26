@@ -70,4 +70,25 @@ ready) — shadcn/ui itself is not installed. If asked to swap in real shadcn/ui
 the prop interfaces are close enough that it's a find-and-replace on imports, not a rewrite.
 
 Design direction lives in `tailwind.config.js` / `frontend/src/index.css` and is restated as
-a design-system brief in `docs/core/DESIGN.md`. Desktop-first, no dark mode, by design.
+a design-system brief in `docs/core/DESIGN.md`. No dark mode, by design.
+
+## Responsive
+
+Designed at desktop width, supported down to 390px. **One breakpoint carries the layout:
+`lg` (1024px).** Below it the sidebar is `fixed` and overlays the content; at `lg` and up
+it's `sticky` and content sits beside it. `App.tsx` mirrors that number in
+`LG_BREAKPOINT` — change one and you must change the other, or the drawer's auto-close
+and its CSS positioning disagree.
+
+Two non-obvious bits, both load-bearing:
+
+- **`overflow-hidden` on the `<aside>`** is what makes `w-0` clip its contents. Without it
+  the nav spills across the page mid-transition.
+- **`navOpen` is re-synced by `matchMedia`, not a resize handler.** It fires only when the
+  viewport crosses `lg`, so a manual toggle inside one size class is left alone — a plain
+  resize listener would fight the user. This exists because rotating an iPad
+  (1180 → 820) otherwise leaves the drawer open on top of the content.
+
+When adding a screen: give any `grid-cols-2`/`-3` a `grid-cols-1 sm:` fallback, and put
+wide tables in an `overflow-x-auto` container. The page body must never scroll
+horizontally — verify with `document.documentElement.scrollWidth === clientWidth`.

@@ -110,7 +110,7 @@ function BudgetTableInner({ eventId, title, canEdit }: { eventId: string; title:
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <SummaryCard label="Estimated" value={totalEst} />
         <SummaryCard label="Actual" value={totalActual} />
         <SummaryCard label="Variance" value={totalVariance} highlight={totalVariance > 0 ? 'danger' : 'success'} />
@@ -179,7 +179,7 @@ function BudgetTableInner({ eventId, title, canEdit }: { eventId: string; title:
           <Field label="Item Name">
             <Input value={form.ItemName ?? ''} onChange={(e) => setForm({ ...form, ItemName: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category">
               <Select value={form.CategoryExpense ?? ''} onChange={(e) => setForm({ ...form, CategoryExpense: e.target.value })}>
                 <option value="">— select —</option>
@@ -224,7 +224,7 @@ function BudgetTableInner({ eventId, title, canEdit }: { eventId: string; title:
           </div>
 
           {isApproved && (
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-ink/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-ink/10">
               <Field label="Actual Cost (IDR)">
                 <Input
                   type="number"

@@ -165,7 +165,7 @@ export function IdeasBoard() {
               ))}
             </Select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Theme">
               <Input value={form.Theme ?? ''} onChange={(e) => setForm({ ...form, Theme: e.target.value })} />
             </Field>
@@ -173,7 +173,7 @@ export function IdeasBoard() {
               <Input value={form.Tagline ?? ''} onChange={(e) => setForm({ ...form, Tagline: e.target.value })} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AIPromptBox kind="theme" label="AI Theme Ideas" onPick={(s) => setForm((f) => ({ ...f, Theme: s }))} />
             <AIPromptBox kind="tagline" label="AI Tagline Ideas" onPick={(s) => setForm((f) => ({ ...f, Tagline: s }))} />
           </div>

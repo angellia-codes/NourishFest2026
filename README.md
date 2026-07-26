@@ -126,8 +126,17 @@ find-and-replace, not a rewrite.
 "Tropical night market" — deep ink sidebar with a mango→guava→purple festival
 gradient for active states, warm paper background for data-dense areas,
 `Fraunces` for headers (organic/editorial, ties to "Nourish"), `Plus Jakarta
-Sans` for UI/table text. Desktop-first, no dark mode. Tokens live in
-`tailwind.config.js` / `src/index.css`.
+Sans` for UI/table text. No dark mode. Tokens live in `tailwind.config.js` /
+`src/index.css`.
+
+### Responsive
+
+Designed at desktop width, works down to a 390px phone. One breakpoint does the
+work — Tailwind's `lg` (1024px): below it the sidebar is an overlay drawer that
+starts closed and dismisses on backdrop tap or nav selection; at `lg` and up it's
+a static column that starts open. Rotating a tablet across that boundary re-syncs
+it. Field rows stack below `sm`, and wide tables scroll inside their own container
+so the page body never scrolls horizontally.
 
 ---
 

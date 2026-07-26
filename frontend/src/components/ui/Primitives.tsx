@@ -55,15 +55,16 @@ export function Modal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm px-4 py-10 overflow-y-auto">
+    // py-4 on phones: py-10 would burn a fifth of a short screen on margin.
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm px-3 sm:px-4 py-4 sm:py-10 overflow-y-auto">
       <div className="w-full max-w-lg rounded-xl bg-paper shadow-xl border border-ink/10">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ink/10">
-          <h3 className="font-display text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-ink/50 hover:text-ink">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-ink/10">
+          <h3 className="font-display text-lg font-semibold min-w-0 truncate">{title}</h3>
+          <button onClick={onClose} className="text-ink/50 hover:text-ink shrink-0">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="px-4 sm:px-5 py-4">{children}</div>
       </div>
     </div>
   );

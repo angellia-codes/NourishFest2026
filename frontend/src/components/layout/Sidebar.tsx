@@ -92,6 +92,8 @@ export const NAV_GROUPS: NavGroup[] = [
 interface SidebarProps {
   active: string;
   onSelect: (key: string) => void;
+  /** Collapsed to zero width when false. Toggled from the header in App.tsx. */
+  open?: boolean;
 }
 
 // Partitions a group's flat items into ungrouped items and contiguous
@@ -146,7 +148,7 @@ function NavButton({
   );
 }
 
-export function Sidebar({ active, onSelect }: SidebarProps) {
+export function Sidebar({ active, onSelect, open = true }: SidebarProps) {
   const { accessLevel, loading } = usePermissions();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggleGroup = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
@@ -157,7 +159,20 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 shrink-0 h-screen sticky top-0 bg-ink text-paper flex flex-col grain-bg">
+    <aside
+      className={[
+        'h-screen shrink-0 bg-ink text-paper flex flex-col grain-bg',
+        // Below lg it overlays the content (fixed) so opening the nav on a
+        // phone doesn't squeeze the page into a sliver; from lg up it's a
+        // normal sticky column that content sits beside.
+        'fixed inset-y-0 left-0 z-40 lg:sticky lg:top-0',
+        // overflow-hidden is what makes w-0 actually clip the contents rather
+        // than let them spill across the page mid-transition.
+        'overflow-hidden transition-[width] duration-200 ease-out',
+        open ? 'w-64' : 'w-0',
+      ].join(' ')}
+      aria-hidden={!open}
+    >
       <div className="px-5 pt-6 pb-5 border-b border-white/10">
         <div className="h-9 w-9 rounded-lg bg-festival-gradient mb-3" />
         <h1 className="font-display text-xl font-semibold leading-tight">NourishFest 2026</h1>

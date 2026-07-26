@@ -113,7 +113,7 @@ export function CommitteeGrid() {
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit Member' : 'Add Member'}>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Name">
               <Input value={form.Name ?? ''} onChange={(e) => setForm({ ...form, Name: e.target.value })} />
             </Field>

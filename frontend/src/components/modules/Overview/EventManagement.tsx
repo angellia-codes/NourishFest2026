@@ -120,7 +120,7 @@ export function EventManagement() {
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit Event' : 'Add Event'}>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Event Type">
               <Select
                 value={form.EventType}
@@ -151,7 +151,7 @@ export function EventManagement() {
           <Field label="Event Name">
             <Input value={form.EventName ?? ''} onChange={(e) => setForm({ ...form, EventName: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category / Theme">
               <Input
                 value={form.CategoryOrTheme ?? ''}

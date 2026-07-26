@@ -9,7 +9,8 @@
 - **Color Palette:** Deep ink (`#1B1420`) sidebar against a warm paper (`#FBF6EE`) background. Primary actions use guava (`#FF3D77`); secondary/success states use jungle green (`#1B6B4A`). Mango (`#FFB238`), sun (`#FFD23F`), and coral (`#FF6B4A`) are accent colors. Active states use the `festival-gradient` (mango → guava → purple `#7A1FA2`, 135deg). Muted surfaces are `#F1E9DA` with `#6B5F52` text. See `frontend/tailwind.config.js` for exact tokens and `frontend/src/index.css` for the `--border`/`--background`/`--foreground` HSL vars.
 - **Typography:** `Fraunces` (serif) for headers (`h1`/`h2`/`h3`/`.font-display`), `Plus Jakarta Sans` (sans-serif) for body text. High contrast for readability on data-heavy tables.
 - **Psychology-Backed UX:** Design interfaces that build momentum and drive action. Group related tasks visually to encourage workflow stacking. Use subtle visual cues (progress rings, satisfying strike-through animations, color-coded urgency) to guide user behavior and reduce cognitive load.
-- **Layout:** Modern SaaS dashboard, desktop-first, no dark mode by design. Persistent ink-colored sidebar, collapsible menus, sticky headers, heavy whitespace, subtle grain texture (`.grain-bg`) behind the app shell for festival warmth.
+- **Layout:** Modern SaaS dashboard, no dark mode by design. Ink-colored sidebar, collapsible menus, sticky headers, heavy whitespace, subtle grain texture (`.grain-bg`) behind the app shell for festival warmth.
+- **Responsive:** Designed at desktop width, but works down to a 390px phone. One breakpoint carries the layout — Tailwind's `lg` (1024px): below it the sidebar becomes an overlay drawer with a dismissable backdrop and starts closed; at or above it the sidebar is a static column and starts open. Field rows stack below `sm`. Wide tables scroll inside their own container rather than widening the page — **the page body must never scroll horizontally**, at any width.
 
 ## Strict Coding Constraints
 

@@ -51,7 +51,7 @@ function EventDetailsFormInner({ eventId, canEdit }: { eventId: string; canEdit:
     <div className="space-y-4 max-w-2xl">
       <h2 className="font-display text-2xl font-semibold">Event Details</h2>
       <div className="rounded-xl border border-ink/10 bg-white p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Event Name">
             <Input disabled={!canEdit} value={form.EventName ?? ''} onChange={(e) => setForm({ ...form, EventName: e.target.value })} />
           </Field>
