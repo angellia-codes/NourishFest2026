@@ -13,9 +13,9 @@ interface AIPromptBoxProps {
 }
 
 /**
- * Collapsible AI-suggestions box, backed by a real Gemini call from Code.gs
- * (action=aiGenerate). Admin-only — the backend independently re-checks
- * user.permission === 'Admin', so hiding the box here is UX only.
+ * Collapsible AI-suggestions box, backed by a real Gemini call from the
+ * `ai-generate` Edge Function. Admin-only — that function independently
+ * re-checks current_permission() = 'Admin', so hiding the box here is UX only.
  */
 export function AIPromptBox({ kind, label, placeholder, onPick }: AIPromptBoxProps) {
   const { isAdmin, loading } = usePermissions();

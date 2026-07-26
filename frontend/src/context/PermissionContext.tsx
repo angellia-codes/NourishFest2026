@@ -19,7 +19,7 @@ interface PermissionContextValue {
 const PermissionContext = createContext<PermissionContextValue | null>(null);
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
-  const { idToken } = useAuth();
+  const { session } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +29,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
       .me()
       .then(setUser)
       .finally(() => setLoading(false));
-  }, [idToken]);
+  }, [session]);
 
   const tier = user?.permission ?? 'none';
 

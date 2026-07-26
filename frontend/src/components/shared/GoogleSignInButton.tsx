@@ -1,46 +1,25 @@
-import { useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
-
+/**
+ * Kicks off Supabase's Google OAuth redirect. Nothing to initialize and no
+ * script to wait for — the old version had to poll for `window.google`
+ * because the Identity Services script tag loads async.
+ */
 export function GoogleSignInButton() {
   const { signIn } = useAuth();
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!CLIENT_ID) {
-      // eslint-disable-next-line no-console
-      console.warn('VITE_GOOGLE_CLIENT_ID is not set — add it to your .env file.');
-      return;
-    }
-
-    // The GIS script tag is async/defer, so it may not be loaded yet when
-    // this effect first runs — poll briefly rather than assuming it's ready.
-    let cancelled = false;
-    const tryInit = () => {
-      if (cancelled) return;
-      if (!window.google || !ref.current) {
-        setTimeout(tryInit, 100);
-        return;
-      }
-      window.google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: (resp: { credential: string }) => signIn(resp.credential),
-      });
-      window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large' });
-    };
-    tryInit();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [signIn]);
-
-  return <div ref={ref} />;
+  return (
+    <button
+      onClick={() => signIn()}
+      className="flex items-center gap-2 rounded-md border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-ink/80 shadow-sm hover:bg-ink/[0.03]"
+    >
+      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
+        <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z" />
+        <path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6v-3.1h-4a12 12 0 0 0 0 10.8l4-3.1Z" />
+        <path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.5-3.5A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z" />
+      </svg>
+      Sign in with Google
+    </button>
+  );
 }
