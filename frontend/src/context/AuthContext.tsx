@@ -1,40 +1,52 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { setIdToken } from '../services/api';
-
-const STORAGE_KEY = 'nourishfest_id_token';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../services/supabase';
 
 interface AuthContextValue {
-  idToken: string | null;
-  signIn: (token: string) => void;
-  signOut: () => void;
+  session: Session | null;
+  /** False only until the initial session lookup settles — distinguishes "signed out" from "not known yet". */
+  loading: boolean;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [idToken, setToken] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setIdToken(stored);
-      setToken(stored);
-    }
+    // getSession() resolves from storage immediately; onAuthStateChange then
+    // keeps this in step with token refreshes and the OAuth redirect coming
+    // back. Supabase persists and refreshes the session itself, so there is
+    // no sessionStorage handling here any more.
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+      setLoading(false);
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signIn = (token: string) => {
-    sessionStorage.setItem(STORAGE_KEY, token);
-    setIdToken(token);
-    setToken(token);
+  const signIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) throw new Error(error.message);
   };
 
-  const signOut = () => {
-    sessionStorage.removeItem(STORAGE_KEY);
-    setIdToken(null);
-    setToken(null);
+  const signOut = async () => {
+    await supabase.auth.signOut();
   };
 
-  return <AuthContext.Provider value={{ idToken, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

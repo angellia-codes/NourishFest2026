@@ -1,6 +1,7 @@
 // NourishFest 2026 — shared TypeScript models
-// Mirrors Code.gs SCHEMA/PERMISSIONS exactly. Field names match sheet
-// headers 1:1 so objects can be sent straight to the API without remapping.
+// Mirrors supabase/schema.sql exactly. Field names match the Postgres column
+// names 1:1 so objects can be sent straight to the API without remapping —
+// which is why those columns are quoted PascalCase rather than snake_case.
 
 export type PermissionTier = 'Admin' | 'Advisor' | 'Member' | 'none';
 export type AccessLevel = 'write' | 'read' | 'none' | 'special';
@@ -312,7 +313,7 @@ export type EntityName =
   | 'Finance_Incoming'
   | 'NourishGotTalent';
 
-// entity -> its unique ID column name (SCHEMA[entity][0] in Code.gs)
+// entity -> its primary key column in supabase/schema.sql
 export const ID_FIELD: Record<EntityName, string> = {
   Events: 'EventID',
   Ideas: 'IdeaID',
@@ -332,7 +333,9 @@ export const ID_FIELD: Record<EntityName, string> = {
   NourishGotTalent: 'TalentID',
 };
 
-// Mirror of Code.gs's `PERMISSIONS` const — keep these two in sync by hand.
+// UI-only mirror of the RLS policies in supabase/schema.sql — kept in sync by
+// hand. This gates affordances; the database is what actually enforces access,
+// so a mismatch here shows the wrong buttons, it does not grant anything.
 export const ENTITY_ACCESS: Record<EntityName, Record<'Admin' | 'Advisor' | 'Member', AccessLevel>> = {
   Events: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Ideas: { Admin: 'write', Advisor: 'read', Member: 'special' },

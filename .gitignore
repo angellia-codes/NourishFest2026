@@ -1,2 +1,3 @@
 graphify-out/
 .gstack/
+.claude/settings.local.json

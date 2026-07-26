@@ -1,158 +1,209 @@
 # NourishFest 2026 — Event Management App
 
-Full-stack event ops tool: React/Vite/TS frontend + Google Apps Script backend
-over a Google Sheet. Four top-level nav groups — **Overview** (Dashboard,
-Committee, Ideas, Event Management), **Road to NourishFest** (Pre-Event, 4
-monthly events), **NourishFest** (Main Event), and **Finance** — all built
-around an `Events` entity that every other module attaches to via `EventID`.
+Event ops tool for planning NourishFest 2026: four monthly pre-events plus the
+main festival. React/Vite/TypeScript frontend on Supabase (Postgres + Auth +
+Storage). There is no application server — the frontend talks to Postgres
+directly, and **access is enforced by row-level security policies in the
+database**.
+
+Four nav groups — **Overview** (Dashboard, Committee, Ideas, Event Management),
+**Road to NourishFest** (the 4 monthly pre-events), **NourishFest** (main event),
+and **Finance** — all built around an `Events` table that every other module
+attaches to via `EventID`.
 
 ```
 NourishFest2026/
-├── Code.gs             ← entire backend, paste into the Apps Script editor
-├── docs/
-│   ├── core/
-│   │   ├── PRD.md        ← product requirements this build follows
-│   │   ├── SCHEMA.md      ← stale — describes an earlier backend design
-│   │   └── DESIGN.md      ← UI/UX visual-design brief
-│   └── module/            ← per-module planning content
-└── frontend/             ← React + Vite + TypeScript app
+├── supabase/
+│   ├── schema.sql              ← the entire backend: tables, RLS, triggers, RPCs
+│   └── functions/ai-generate/  ← Gemini call for the Ideas suggestion box
+├── frontend/                   ← React + Vite + TypeScript app
+└── docs/
+    ├── core/PRD.md             ← product requirements
+    ├── core/DESIGN.md          ← UI/UX visual-design brief
+    ├── core/SCHEMA.md          ← STALE: describes the retired Apps Script backend
+    └── module/                 ← per-module planning content
 ```
 
 ---
 
-## 1. Backend Setup (Google Apps Script)
+## 1. Backend Setup (Supabase)
 
-1. Create a new Google Sheet (this becomes your database).
-2. Extensions → Apps Script. Delete the default content and paste in
-   `Code.gs`.
-3. In the function dropdown at the top, select `setupSheets`, click **Run**.
-   Grant the permissions it asks for. This creates all 16 tabs with header
-   rows, seeds the `Roles` lookup tab, and adds *you* as a `Chairperson` row
-   in `Committee` — check that sheet to confirm you're there with
-   `Status = Active`. Safe to re-run later (it never touches a tab that
-   already exists).
-4. Set `DRIVE_FOLDER_ID` near the top of `Code.gs` to a Drive folder you
-   own — this is where every uploaded file (quotations, invoices, design
-   images, receipts) lands. There's no separate Documents vault or metadata
-   table; the single `uploadFile` action just returns a view-link URL that
-   gets stored directly on whichever record's `*FileLink`/`*ImageLink` field
-   triggered the upload.
-5. **Deploy → New deployment → Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone within [your Workspace domain]**
-   - Copy the deployment URL (ends in `/exec`) — this is `VITE_GAS_API_URL`.
-6. Every code change needs a new deployment version (**Deploy → Manage
-   deployments → Edit → New version**) to go live.
-7. Add the rest of your committee: add rows to the `Committee` tab manually
-   — `Name | Email | Department | Role | Status`. `Role` must exactly match
-   one of the `Roles` tab's `RoleName` values (`Chairperson`, `Vice
-   Chairperson`, `Treasurer`, `Secretary`, `Advisor`, or one of the 6
-   coordinator roles) — permission level is *derived* from this value every
-   request (`Chairperson`/`Vice Chairperson`/`Treasurer`/`Secretary` →
-   Admin, `Advisor` → Advisor, anything else → Member), so a typo here
-   silently drops someone to Member. `Status` must be exactly `Active` or
-   they're treated as not a member at all. There's no separate Permissions
-   sheet or admin UI — the `Committee` tab *is* the RBAC store.
-8. Once signed in, go to **Event Management** (Overview group, Admin-only)
-   and create your 4 Pre-Event months plus the Main Event — nothing else in
-   the app has data to show until these exist.
+1. Create a project at [supabase.com](https://supabase.com). Note your **Project
+   URL** and **anon key** from Project Settings → API.
+
+2. **SQL Editor → New query.** Paste in all of `supabase/schema.sql` and run it.
+   This creates the 16 tables, the RLS policies, the triggers that compute
+   derived fields, the `dashboard()`/`finance_dashboard()`/`me()` functions, the
+   `attachments` storage bucket, and seeds the `Roles` lookup table.
+
+   `schema.sql` is a **create-from-scratch script, not a migration** — running it
+   twice fails on the first `create table`. Once your project is live, make
+   changes with incremental `alter table` statements and mirror them back into
+   the file.
+
+3. **Add yourself to `Committee` — the app does not work until you do.** RLS
+   derives every permission from this table, so while it is empty *everyone*
+   resolves to `none` and the app signs you in to blank screens. In the SQL
+   Editor:
+
+   ```sql
+   insert into "Committee" ("Name", "Email", "Department", "Role", "Status")
+   values ('Your Name', 'you@example.com', 'Committee', 'Chairperson', 'Active');
+   ```
+
+   Use the email of the Google account you'll sign in with. Don't set
+   `Responsibility` — a trigger fills it from `Roles`.
+
+4. **Authentication → Providers → Google.** Enable it and paste in a Google
+   OAuth client ID and secret ([Google Cloud
+   Console](https://console.cloud.google.com/apis/credentials) → Credentials →
+   OAuth client ID → Web application). Supabase shows the callback URL to add as
+   an *Authorized redirect URI* on the Google side.
+
+5. **Authentication → URL Configuration.** Add `http://localhost:5173` for local
+   development, plus your production URL once you have one. Sign-in silently
+   fails to redirect back without this.
+
+6. *(Optional — only for the Ideas AI suggestions box.)* Deploy the Edge
+   Function and give it a [Gemini API key](https://aistudio.google.com/apikey):
+
+   ```bash
+   supabase functions deploy ai-generate
+   supabase secrets set GEMINI_API_KEY=<your key>
+   ```
+
+   Everything else works without this; the box is Admin-only and fails with a
+   visible error if the key is missing.
+
+7. **Add the rest of your committee** — insert rows in the Supabase table editor
+   (`Name | Email | Department | Role | Status`). Two things fail *silently*
+   here, and they are the usual cause of "I'm signed in but everything is empty":
+
+   - **`Role` must exactly match** a `RoleName` from the `Roles` table.
+     `Chairperson`, `Vice Chairperson`, `Treasurer`, and `Secretary` become
+     Admin; `Advisor` becomes Advisor; anything else — **including a typo** —
+     becomes Member.
+   - **`Status` must be exactly `Active`**, or they are treated as not a member
+     at all.
+
+   There is no admin UI for this. The `Committee` table *is* the access-control
+   store.
+
+8. **Create your events.** Sign in, go to **Event Management** (Overview,
+   Admin-only) and create the 4 pre-event months plus the main event. Nearly
+   every other table hangs off `EventID`, so the rest of the app has nothing to
+   show until these exist.
 
 ## 2. Frontend Setup
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env      # paste your /exec URL into VITE_GAS_API_URL
+cp .env.example .env      # paste in your Supabase URL + anon key
 npm run dev
 ```
 
+The anon key is a public client key, not a secret — it ships to the browser by
+design. What it can reach is decided entirely by the RLS policies in
+`schema.sql`.
+
 ### About the UI components
+
 `src/components/ui/` contains hand-rolled Button/Input/Select/Modal/Badge
-primitives styled to match shadcn/ui conventions (same prop shapes, Tailwind
-+ `class-variance-authority` ready). To use the **actual** shadcn/ui
-component library instead:
+primitives styled to match shadcn/ui conventions (same prop shapes, Tailwind +
+`class-variance-authority`). To use the **actual** shadcn/ui library instead:
+
 ```bash
 npx shadcn@latest init
 npx shadcn@latest add button input select dialog badge textarea tabs
 ```
-Then swap the imports in the module components — the prop interfaces are
-close enough that this is a find-and-replace, not a rewrite.
+
+Then swap the imports — the prop interfaces are close enough that this is a
+find-and-replace, not a rewrite.
 
 ### Design direction
-"Tropical night market" — deep ink sidebar with a mango→guava→purple
-festival gradient for active states, warm paper background for data-dense
-areas, `Fraunces` for headers (organic/editorial, ties to "Nourish"),
-`Plus Jakarta Sans` for UI/table text (legible at small sizes). Desktop-first,
-no dark mode. Adjust tokens in `tailwind.config.js` / `src/index.css`.
+
+"Tropical night market" — deep ink sidebar with a mango→guava→purple festival
+gradient for active states, warm paper background for data-dense areas,
+`Fraunces` for headers (organic/editorial, ties to "Nourish"), `Plus Jakarta
+Sans` for UI/table text. Desktop-first, no dark mode. Tokens live in
+`tailwind.config.js` / `src/index.css`.
 
 ---
 
 ## 3. Architecture Notes
 
-- **One generic entity API.** `Code.gs` exposes
-  `me / list / dashboard / financeDashboard / create / update / delete /
-  vote / uploadFile`, parametrized by an `entity` name (16 sheet tabs).
-  Frontend mirrors this with one `useEntityData<T>(entity, { eventId })`
-  hook used by every module — see `src/hooks/useEntityData.ts`.
-- **Config-driven CRUD table.** `VenueComparison`, `DecorationComparison`,
-  `SouvenirComparison`, `Entertainment`, `Awards`, `DoorPrize`, `Rundown`,
-  and `Finance_Incoming` are all backed by one
-  `<EntityCrudTable entity="..." fields={[...]} />` component
-  (`src/components/shared/EntityCrudTable.tsx`) instead of 8 near-duplicate
-  screens.
-- **Events drive everything.** Pre-Event's 4 monthly events are picked via
-  a header dropdown (`<PreEventPicker>`, only shown while a Pre-Event screen
-  is active); the Main Event auto-resolves since there's exactly one row.
-  `src/context/SelectedEventContext.tsx` holds this state.
-- **Permissions** are derived server-side from the signed-in user's
-  `Committee.Role` (no separate Permissions sheet) — one of three tiers,
-  Admin/Advisor/Member, fetched once via the `me` action and held in
-  `PermissionContext`. `usePermissions().canWrite('BudgetBreakdown')` gates
-  buttons/edit affordances; a few entities (`Ideas`, `Checklist`) have a
-  fourth `'special'` access level with bespoke rules (submit+vote only;
-  update your own assigned task only) checked directly in those screens.
-  The backend independently re-checks every write — a hidden button is UX
-  only, not the real security boundary.
+- **One generic entity API.** `src/services/api.ts` exposes `me / list /
+  dashboard / financeDashboard / create / update / remove / uploadFile /
+  aiGenerate`, parametrized by entity name, and is the only file that knows
+  Supabase exists — 8 files import it. The frontend mirrors it with one
+  `useEntityData<T>(entity, { eventId })` hook used by every module.
+
+- **Config-driven CRUD table.** The Venue/Decoration/Souvenir comparisons,
+  Entertainment, Awards, Door Prize, Nourish Got Talent, Rundown and Finance
+  Income screens are all one `<EntityCrudTable entity="..." fields={[...]} />`
+  (`src/components/shared/EntityCrudTable.tsx`) rather than 9 near-duplicate
+  components. Reach for it before writing a new table-shaped screen.
+
+- **Events drive everything.** The 4 pre-events are picked from a header
+  dropdown (`<PreEventPicker>`, shown only on pre-event screens); the main event
+  auto-resolves since there is exactly one row.
+  `src/context/SelectedEventContext.tsx` holds this.
+
+- **Permissions are enforced in the database.** `current_permission()` reads the
+  signed-in user's email from their JWT, matches it against `Committee`, and
+  returns Admin/Advisor/Member/none; RLS policies on every table consult it. The
+  frontend's `PermissionContext` fetches the same value once via `me()` and uses
+  it to gate buttons — but that is **UX only**. A hidden button is not the
+  security boundary; the policy is. `Ideas` and `Checklist` have a fourth
+  `'special'` level with bespoke rules (submit your own; update only your own
+  assigned task's Status/Remark), which those screens check directly.
+
+- **Derived fields are computed by Postgres, not the client.**
+  `TotalEstimationCost` (Quantity × Price) and `BudgetBreakdown.Variance` are
+  generated columns; `Committee.Responsibility` is filled by a trigger; the
+  one-idea-per-scope cap is a unique constraint. None of these can be bypassed
+  by a client that sends its own value.
+
 - **Polling**: TanStack Query refetches every 30s (`POLL_INTERVAL_MS` in
-  `useEntityData.ts`) plus on window focus. No offline queueing — a write
-  while offline just fails with a visible error.
-- **File uploads** go through one `uploadFile` action (base64 in, Drive
-  view-link URL out) wired into per-field `<FileUploadField>` controls
-  (`src/components/shared/FileUploadField.tsx`) — there's no vault screen,
-  no metadata row, no file-type categorization.
+  `useEntityData.ts`) plus on window focus. No offline queueing — a write while
+  offline fails with a visible error.
+
+- **File uploads** go to the public `attachments` storage bucket via
+  `<FileUploadField>` (`src/components/shared/FileUploadField.tsx`), and the
+  returned URL is stored directly on the record's `*FileLink`/`*ImageLink`
+  field. No vault screen, no metadata table, no file-type categorization.
 
 ## 4. What's fully built vs. follow-the-pattern
 
-Fully implemented: Dashboard, Committee, Ideas (Scope-based submission with
-a one-per-scope cap, real per-user voting), Event Management (Admin) +
-per-event Event Details, Budget (event-scoped, server-computed Variance,
-Approved-gated Actual Cost/Payment fields), Participants (aggregate
-counts per event), Checklist (kanban, own-task-only editing for Members),
-Venue/Decoration/Souvenir Comparison, Entertainment, Awards, Door Prize,
-Rundown, and the Finance module (Dashboard/Income/Expense).
+Fully implemented: Dashboard, Committee, Ideas (Scope-based submission with a
+one-per-scope cap), Event Management (Admin) + per-event Event Details, Budget
+(event-scoped, server-computed Variance, Approved-gated Actual Cost/Payment
+fields), Participants, Checklist (kanban, own-task-only editing for Members),
+Venue/Decoration/Souvenir Comparison, Entertainment, Awards, Door Prize, Nourish
+Got Talent, Rundown, and Finance (Dashboard/Income/Expense).
 
-If you want a new screen for a near-identical entity, follow the
-`EntityCrudTable` pattern (a field-config array, no new component); for
-anything with real business logic, follow the pattern of an existing
-bespoke screen like `Budget.tsx` or `Checklist.tsx`.
+For a new screen over a near-identical entity, follow the `EntityCrudTable`
+pattern — a field-config array, no new component. For anything with real
+business logic, follow an existing bespoke screen like `Budget.tsx` or
+`Checklist.tsx`.
 
 ## 5. Known gaps to decide on next
 
-- **No concurrency locking** — unlike the previous backend design, writes
-  in the current `Code.gs` don't use `LockService`, so two organizers
-  editing the same row at the same moment could race. Fine at small-team
-  volume; say the word if you want it added back.
-- **No file-size or file-type limit** on `uploadFile` — the previous
-  Documents vault enforced a 10MB/PDF-only cap client- and server-side;
-  the current single upload action has neither. Tell me if you want limits
-  reinstated.
-- **No in-app admin UI for `Committee`/`Roles`** beyond the Committee grid
-  itself — `Roles` (the responsibility-lookup + informational permission
-  tier per role name) is still sheet-only, seeded once by `setupSheets()`.
-- **Event deletion has no cascade check** — removing an `Event` in Event
-  Management doesn't clean up `Budget`/`Checklist`/etc. rows still
-  referencing its `EventID` (the UI warns about this on delete, but nothing
-  enforces it).
-- `docs/core/SCHEMA.md` still describes an earlier backend design — treat
-  `Code.gs`'s own `SCHEMA`/`PERMISSIONS` consts as the source of truth until
-  that file is updated (tracked in `TODO.md`).
+- **Event deletion doesn't cascade.** Only `Participants` is cleaned up (its
+  primary key is a foreign key to `Events`). `BudgetBreakdown`, `Checklist`,
+  `Rundown` and the comparison tables store `EventID` as plain text with no
+  constraint, so deleting an event orphans their rows. The UI warns; nothing
+  enforces it.
+- **No file-size or file-type limit** on uploads, client- or server-side.
+- **No in-app admin UI** for `Committee`/`Roles` beyond the Committee grid —
+  roles are assigned by editing the table directly.
+- **No generated database types.** `api.ts` casts insert/update payloads with
+  `as never` as a result; running `supabase gen types typescript` would let
+  those go.
+- **No test suite**, for either the frontend or the SQL. `npm run lint`
+  currently fails too — ESLint 9 wants an `eslint.config.js` and the repo still
+  has the older format.
+- `docs/core/SCHEMA.md` describes the retired Apps Script backend and has not
+  been rewritten; `supabase/schema.sql` is the source of truth (tracked in
+  `TODO.md`).
