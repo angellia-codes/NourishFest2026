@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm run build)",
+      "PowerShell(npm run build *)",
+      "PowerShell(npm run dev)",
+      "PowerShell(npm run dev *)",
+      "PowerShell(npm run lint)",
+      "PowerShell(npm run lint *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(git show *)",
+      "Bash(npx tsc *)",
+      "Bash(npx oxlint *)"
+    ]
+  }
+}
