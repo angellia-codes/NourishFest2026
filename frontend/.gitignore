@@ -1,6 +1,8 @@
 node_modules
 dist
-.env
-.env.local
+# Every .env variant — a bare `.env` rule does not cover `.env.bak`,
+# `.env.production` and friends, which hold the same credentials.
+.env*
+!.env.example
 *.log
 tsconfig.tsbuildinfo
