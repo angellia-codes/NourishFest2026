@@ -6,7 +6,11 @@
 //   supabase secrets set GEMINI_API_KEY=<key>
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
+// Overridable with a GEMINI_MODEL secret so the next deprecation is a
+// dashboard change, not a code change and redeploy. gemini-2.5-flash — what
+// Code.gs used — is closed to new projects and 404s with "no longer available
+// to new users", which is how this surfaced.
+const GEMINI_TEXT_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.6-flash';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
