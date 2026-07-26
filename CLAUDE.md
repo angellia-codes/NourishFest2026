@@ -9,12 +9,10 @@ The layout is just `ls`; which docs are trustworthy is not:
 - `supabase/schema.sql` — the backend. **The source of truth for entities, columns, and permissions.**
 - `docs/core/PRD.md` — product requirements. Untracked, current on product intent.
 - `docs/core/DESIGN.md` — UI/UX visual-design brief. Current.
+- `README.md` — Supabase setup + architecture notes. Current.
 - `docs/core/SCHEMA.md` — sheet/column reference from the Apps Script era. **Stale.**
-- `README.md` — **Stale and actively misleading**: it is still a step-by-step Apps Script
-  setup guide for a `Code.gs` that no longer exists in the tree. Its architecture notes
-  (§3) are still accurate; its setup instructions (§1–2) are not.
-- `TODO.md` — follow-ups list, also written pre-migration; its "no concurrency locking"
-  item is resolved (Postgres handles it), the rest still stand.
+- `TODO.md` — follow-ups list. Current. Its first section is the unrun verification
+  checklist for the migration.
 
 React SPA on Supabase (Postgres + Auth + Storage + one Edge Function). There is no
 application server: the frontend talks to Postgres directly through PostgREST, and
