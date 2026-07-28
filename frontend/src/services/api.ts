@@ -65,8 +65,8 @@ export const api = {
     const { data, error } = await supabase.functions.invoke('ai-generate', { body: { kind, prompt } });
     if (error) {
       // functions.invoke() collapses every non-2xx into the same generic
-      // "non-2xx status code" message. The real reason — "AI generation is
-      // Admin-only", a missing key, a Gemini failure — is in the response
+      // "non-2xx status code" message. The real reason — not a committee
+      // member, a missing key, a Gemini failure — is in the response
       // body, so dig it out or the user sees nothing useful.
       const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
       throw new Error(body?.error ?? error.message);

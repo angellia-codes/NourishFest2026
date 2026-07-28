@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    // Admin-only, same gate as Code.gs aiGenerate_(). The caller's JWT is
-    // forwarded so current_permission() resolves to the signed-in user
-    // rather than to the service role.
+    // Open to any active Committee member. The caller's JWT is forwarded so
+    // current_permission() resolves to the signed-in user rather than to the
+    // service role.
     const authorization = req.headers.get('Authorization') ?? '';
     if (!authorization) return fail('Not signed in', 401);
 
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     const { data: permission, error: permError } = await supabase.rpc('current_permission');
     if (permError) return fail(permError.message, 400);
-    if (permission !== 'Admin') return fail('AI generation is Admin-only', 403);
+    if (permission === 'none') return fail('Not an active committee member', 403);
 
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) return fail('Gemini API key not set. Run: supabase secrets set GEMINI_API_KEY=<key>', 500);

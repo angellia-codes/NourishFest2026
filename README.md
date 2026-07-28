@@ -72,8 +72,8 @@ NourishFest2026/
    supabase secrets set GEMINI_API_KEY=<your key>
    ```
 
-   Everything else works without this; the box is Admin-only and fails with a
-   visible error if the key is missing.
+   Everything else works without this; the box is open to any active committee
+   member and fails with a visible error if the key is missing.
 
 7. **Add the rest of your committee** — insert rows in the Supabase table editor
    (`Name | Email | Department | Role | Status`). Two things fail *silently*

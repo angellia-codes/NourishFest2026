@@ -54,11 +54,11 @@ returning a URL stored directly in the row's `*FileLink`/`*ImageLink` field. No 
 row, no categorization. Files go under a randomised path so two people uploading
 `quotation.pdf` don't overwrite each other.
 
-## AI generation (Gemini, Admin only)
+## AI generation (Gemini, any active committee member)
 
 `useAIGenerate` → `api.aiGenerate` → the `ai-generate` Edge Function
-(`supabase/functions/ai-generate/`), which holds the Gemini key server-side and re-checks
-`current_permission() = 'Admin'`. Note that `functions.invoke()` collapses every non-2xx
+(`supabase/functions/ai-generate/`), which holds the Gemini key server-side and rejects
+only `current_permission() = 'none'`. Note that `functions.invoke()` collapses every non-2xx
 into a generic message — `api.ts` digs the real reason out of the response body, so don't
 "simplify" that error handling away.
 
