@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Plus, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Trash2, Printer } from 'lucide-react';
 import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
 import { AIPromptBox } from '@/components/shared/AIPromptBox';
+import { esc, printHtml } from '@/components/shared/print';
 import { EVENT_CATEGORIES, IDEA_SCOPES, type Idea, type IdeaScope, type IdeaStatus } from '@/types';
 
 const STATUSES: IdeaStatus[] = ['New', 'Under Review', 'Approved', 'Rejected', 'Implemented'];
@@ -16,6 +17,49 @@ const STATUS_TONE: Record<IdeaStatus, 'neutral' | 'info' | 'success' | 'danger' 
   Rejected: 'danger',
   Implemented: 'brand',
 };
+
+/** Prints the given ideas as a landscape table. `scopeLabel` names the active filter. */
+function exportIdeasPdf(ideas: Idea[], scopeLabel: string, showScope: boolean) {
+  const scopeName = (s: IdeaScope) => IDEA_SCOPES.find((x) => x.value === s)?.label ?? s;
+  const cols = [
+    ...(showScope ? [{ head: 'Event', get: (i: Idea) => scopeName(i.Scope) }] : []),
+    { head: 'Title', get: (i: Idea) => i.Title },
+    { head: 'Status', get: (i: Idea) => i.Status },
+    { head: 'Category', get: (i: Idea) => i.Category },
+    { head: 'Description', get: (i: Idea) => i.Description },
+    { head: 'Theme · Tagline', get: (i: Idea) => [i.Theme, i.Tagline].filter(Boolean).join(' · ') },
+    { head: 'Submitted by', get: (i: Idea) => i.SubmittedBy || 'Unknown' },
+    { head: 'Date', get: (i: Idea) => i.DateSubmitted },
+  ];
+
+  const css = `
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font: 11px/1.4 system-ui, sans-serif; color: #1b1b1b; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: #777; font-size: 11px; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #d8d8d8; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #f3f3f3; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  td.desc { max-width: 260px; }`;
+
+  const html = `<h1>NourishFest 2026 — Ideas</h1>
+<div class="sub">${esc(scopeLabel)} · ${ideas.length} idea${ideas.length === 1 ? '' : 's'}</div>
+<table>
+  <thead><tr>${cols.map((c) => `<th>${esc(c.head)}</th>`).join('')}</tr></thead>
+  <tbody>${ideas
+    .map(
+      (i) =>
+        `<tr>${cols
+          .map((c) => `<td${c.head === 'Description' ? ' class="desc"' : ''}>${esc(c.get(i))}</td>`)
+          .join('')}</tr>`,
+    )
+    .join('')}</tbody>
+</table>`;
+
+  printHtml(`NourishFest 2026 — Ideas (${scopeLabel})`, html, css);
+}
 
 interface IdeaCardProps {
   idea: Idea;
@@ -69,6 +113,7 @@ export function IdeasBoard() {
   const canSubmit = level === 'write' || level === 'special';
   const canManage = canWrite('Ideas');
 
+  const [filter, setFilter] = useState<IdeaScope | 'all'>('all');
   const [activeScope, setActiveScope] = useState<IdeaScope | null>(null);
   const [form, setForm] = useState<Partial<Idea>>({ Title: '', Description: '', Category: '', Theme: '', Tagline: '' });
   const [submitError, setSubmitError] = useState('');
@@ -98,11 +143,38 @@ export function IdeasBoard() {
       .filter((i) => i.Scope === scope)
       .sort((a, b) => (b.DateSubmitted ?? '').localeCompare(a.DateSubmitted ?? ''));
 
+  const sections = IDEA_SCOPES.filter((s) => filter === 'all' || s.value === filter);
+  const visible = sections.flatMap((s) => forScope(s.value));
+  const filterLabel = filter === 'all' ? 'All months' : (IDEA_SCOPES.find((s) => s.value === filter)?.label ?? '');
+
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-display text-2xl font-semibold">Ideas</h2>
-        <p className="text-sm text-ink/50">One submission per person per event.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-semibold">Ideas</h2>
+          <p className="text-sm text-ink/50">One submission per person per event.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as IdeaScope | 'all')}
+            className="!w-auto text-sm"
+          >
+            <option value="all">All months</option>
+            {IDEA_SCOPES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+          <Button
+            variant="ghost"
+            onClick={() => exportIdeasPdf(visible, filterLabel, filter === 'all')}
+            disabled={visible.length === 0}
+          >
+            <Printer className="h-4 w-4" /> Print to PDF
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -110,7 +182,7 @@ export function IdeasBoard() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading ideas…
         </div>
       ) : (
-        IDEA_SCOPES.map((section) => (
+        sections.map((section) => (
           <div key={section.value} className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-lg font-semibold">{section.label}</h3>

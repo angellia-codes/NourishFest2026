@@ -46,6 +46,7 @@ export interface Event {
   Location: string;
   Status: string;
   SourceIdeaID: string;
+  PhotoLinks: string[]; // public URLs in the attachments bucket
 }
 
 // ---------- Ideas ----------
@@ -351,6 +352,8 @@ export const ENTITY_ACCESS: Record<EntityName, Record<'Admin' | 'Advisor' | 'Mem
   Awards: { Admin: 'write', Advisor: 'read', Member: 'read' },
   DoorPrize: { Admin: 'write', Advisor: 'read', Member: 'read' },
   Rundown: { Admin: 'write', Advisor: 'read', Member: 'read' },
+  // Member 'none' except the Sponsorship Coordinator — role, not tier, so
+  // PermissionContext special-cases it. Mirrors is_finance_editor().
   Finance_Incoming: { Admin: 'write', Advisor: 'read', Member: 'none' },
   NourishGotTalent: { Admin: 'write', Advisor: 'read', Member: 'read' },
 };

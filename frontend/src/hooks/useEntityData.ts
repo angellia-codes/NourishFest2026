@@ -61,5 +61,8 @@ export function useEntityData<T extends object>(
     update: (id: string, data: Partial<T>) => updateMutation.mutateAsync({ id, data }),
     remove: deleteMutation.mutateAsync,
     isMutating: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    // Writes reject through mutateAsync; screens that don't catch would fail
+    // silently, so the last failure is readable here too.
+    mutationError: (createMutation.error ?? updateMutation.error ?? deleteMutation.error) as Error | null,
   };
 }

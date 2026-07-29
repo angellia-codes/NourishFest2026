@@ -6,7 +6,7 @@ import { useSelectedEvent } from '@/context/SelectedEventContext';
 import { Button } from '@/components/ui/Button';
 import { Badge, Field, Input, Modal, Select, Textarea } from '@/components/ui/Primitives';
 import { EventRequiredNotice } from '@/components/shared/EventRequiredNotice';
-import { CHECKLIST_STATUSES, type Checklist } from '@/types';
+import { CHECKLIST_STATUSES, type Checklist, type Committee } from '@/types';
 
 const EMPTY: Partial<Checklist> = { ToDo: '', Assignee: '', DueDate: '', Status: 'To Do', Remark: '' };
 
@@ -27,6 +27,7 @@ export function ChecklistBoard({ eventId, title }: { eventId: string | null; tit
 
 function ChecklistBoardInner({ eventId, title }: { eventId: string; title: string }) {
   const { items, isLoading, create, update, remove, isMutating } = useEntityData<Checklist>('Checklist', { eventId });
+  const { items: committee } = useEntityData<Committee>('Committee'); // roster for the Assignee dropdown
   const { accessLevel, email } = usePermissions();
   const level = accessLevel('Checklist');
   const canManage = level === 'write'; // create/delete + edit any task
@@ -42,7 +43,14 @@ function ChecklistBoardInner({ eventId, title }: { eventId: string; title: strin
   };
 
   const isOverdue = (task: Checklist) => !!task.DueDate && task.Status !== 'Done' && new Date(task.DueDate) < new Date();
-  const canEditTask = (task: Checklist) => canManage || (isMember && task.Assignee === email);
+  // Assignee stays an email — the RLS policy is lower("Assignee") = current_email().
+  // Names are display only; the dropdown writes the email.
+  const nameByEmail = new Map(committee.map((m) => [m.Email.toLowerCase(), m.Name]));
+  const assigneeName = (e: string) => nameByEmail.get(e.toLowerCase()) || e;
+  // Lowercased both sides to match the policy, or a roster entry saved as Foo@Gmail.com
+  // hides the controls from someone the database would let edit.
+  const canEditTask = (task: Checklist) =>
+    canManage || (isMember && task.Assignee.toLowerCase() === email.toLowerCase());
 
   return (
     <div className="space-y-4">
@@ -86,8 +94,9 @@ function ChecklistBoardInner({ eventId, title }: { eventId: string; title: strin
                           <AlertTriangle className="h-3 w-3 mr-1 inline" /> Overdue
                         </Badge>
                       )}
-                      <p className="text-xs text-ink/50">
-                        {task.Assignee || 'Unassigned'} {task.DueDate && `· due ${task.DueDate}`}
+                      <p className="text-xs text-ink/50" title={task.Assignee}>
+                        {task.Assignee ? assigneeName(task.Assignee) : 'Unassigned'}{' '}
+                        {task.DueDate && `· due ${task.DueDate}`}
                       </p>
                       {task.Remark && <p className="text-xs text-ink/60 italic">"{task.Remark}"</p>}
                       {editable && (
@@ -128,8 +137,17 @@ function ChecklistBoardInner({ eventId, title }: { eventId: string; title: strin
             <Input value={form.ToDo ?? ''} onChange={(e) => setForm({ ...form, ToDo: e.target.value })} />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Assignee (email)">
-              <Input value={form.Assignee ?? ''} onChange={(e) => setForm({ ...form, Assignee: e.target.value })} />
+            <Field label="Assignee">
+              <Select value={form.Assignee ?? ''} onChange={(e) => setForm({ ...form, Assignee: e.target.value })}>
+                <option value="">— unassigned —</option>
+                {committee
+                  .filter((m) => m.Status === 'Active' && m.Email)
+                  .map((m) => (
+                    <option key={m.MemberID} value={m.Email}>
+                      {m.Name} · {m.Role}
+                    </option>
+                  ))}
+              </Select>
             </Field>
             <Field label="Due Date">
               <Input type="date" value={form.DueDate ?? ''} onChange={(e) => setForm({ ...form, DueDate: e.target.value })} />

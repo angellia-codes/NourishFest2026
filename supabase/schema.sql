@@ -55,7 +55,12 @@ create table "Events" (
   "Date"            text not null default '',
   "Location"        text not null default '',
   "Status"          text not null default '',
-  "SourceIdeaID"    text not null default ''
+  "SourceIdeaID"    text not null default '',
+  -- Public URLs in the "attachments" bucket. An array rather than the usual
+  -- single *ImageLink column: an event carries a set of pictures, and nothing
+  -- else about them is worth a table.
+  -- On a live project: alter table "Events" add column "PhotoLinks" text[] not null default '{}';
+  "PhotoLinks"      text[] not null default '{}'
 );
 
 create table "Ideas" (
@@ -282,6 +287,20 @@ language sql stable security definer set search_path = public as $$
   ), 'none');
 $$;
 
+-- Sponsorship Coordinator is a 'Member' everywhere except Finance, where it
+-- reads and writes like an Admin. One role with one exception isn't worth a
+-- fifth tier that every other policy would then have to name.
+-- security definer for the same reason as current_permission().
+create or replace function public.is_finance_editor() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from "Committee"
+    where lower("Email") = public.current_email()
+      and "Status" = 'Active'
+      and "Role" = 'Sponsorship Coordinator'
+  );
+$$;
+
 -- Same shape as Code.gs's getCurrentUser_() return value, so the frontend's
 -- CurrentUser type and PermissionContext are unchanged. Returns the
 -- signed-out/not-a-member shape rather than null so api.me() never has to
@@ -412,7 +431,8 @@ declare
 begin
   -- Finance_Incoming is 'none' for Member (Code.gs PERMISSIONS) — the
   -- dashboard aggregates it, so it has to enforce the same gate itself.
-  if public.current_permission() not in ('Admin', 'Advisor') then
+  if public.current_permission() not in ('Admin', 'Advisor')
+     and not public.is_finance_editor() then
     raise exception 'Access denied to Finance_Incoming';
   end if;
 
@@ -491,12 +511,13 @@ create policy "Checklist_member_update" on "Checklist" for update to authenticat
   using (public.current_permission() = 'Member' and lower("Assignee") = public.current_email())
   with check (public.current_permission() = 'Member' and lower("Assignee") = public.current_email());
 
--- Finance_Incoming — Member is 'none': no read at all.
+-- Finance_Incoming — Member is 'none': no read at all, except the
+-- Sponsorship Coordinator, who reads and writes here (is_finance_editor()).
 create policy "Finance_Incoming_read" on "Finance_Incoming" for select to authenticated
-  using (public.current_permission() in ('Admin', 'Advisor'));
+  using (public.current_permission() in ('Admin', 'Advisor') or public.is_finance_editor());
 create policy "Finance_Incoming_admin_write" on "Finance_Incoming" for all to authenticated
-  using (public.current_permission() = 'Admin')
-  with check (public.current_permission() = 'Admin');
+  using (public.current_permission() = 'Admin' or public.is_finance_editor())
+  with check (public.current_permission() = 'Admin' or public.is_finance_editor());
 
 -- ============================================================
 -- STORAGE (replaces the Drive folder)
@@ -532,7 +553,7 @@ insert into "Roles" ("RoleName", "DefaultResponsibility", "PermissionTier", "Not
   ('Logistics/Decoration/Merch Coordinator', 'Venue logistics, decoration, and souvenirs',  'Member',  ''),
   ('Security Coordinator',                   'Security and safety planning',                'Member',  ''),
   ('Documentation Coordinator',              'Photos, video, and event records',            'Member',  ''),
-  ('Sponsorship Coordinator',                'Sponsor outreach and fulfillment',            'Member',  '')
+  ('Sponsorship Coordinator',                'Sponsor outreach and fulfillment',            'Member',  'Member tier, plus read/write on Finance via is_finance_editor()')
 on conflict ("RoleName") do nothing;
 
 -- ============================================================

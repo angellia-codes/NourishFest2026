@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Loader2, Trash2, Pencil, Mail } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, Mail, FileDown } from 'lucide-react';
 import { useEntityData } from '@/hooks/useEntityData';
 import { usePermissions } from '@/context/PermissionContext';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Modal, Select } from '@/components/ui/Primitives';
+import { esc, printHtml } from '@/components/shared/print';
 import type { Committee } from '@/types';
 
 const ROLES = [
@@ -23,6 +24,71 @@ const ROLES = [
 const STATUSES = ['Active', 'Inactive'];
 
 const EMPTY: Partial<Committee> = { Name: '', Email: '', Department: '', Role: '', Status: 'Active' };
+
+// --- Org chart export (browser print-to-PDF, no pdf dependency) ---
+
+const node = (m: Committee) => `
+  <div class="node${m.Status !== 'Active' ? ' inactive' : ''}">
+    <strong>${esc(m.Name || '— vacant —')}</strong>
+    <span>${esc(m.Role || 'Unassigned Position')}</span>
+    ${m.Department ? `<em>${esc(m.Department)}</em>` : ''}
+    ${m.Status !== 'Active' ? `<span class="tag">${esc(m.Status)}</span>` : ''}
+  </div>`;
+
+/** Renders `members` grouped by role into an org tree and opens the print dialog. */
+function exportOrgChart(members: Committee[]) {
+  const of = (...roles: string[]) => members.filter((m) => roles.includes(m.Role));
+  const named = new Set(['Advisor', 'Chairperson', 'Vice Chairperson', 'Secretary', 'Treasurer']);
+  const rest = members.filter((m) => !named.has(m.Role)); // coordinators + anything unrecognised
+
+  const li = (m: Committee, children = '') => `<li>${node(m)}${children}</li>`;
+  const chair = of('Chairperson');
+  const vice = of('Vice Chairperson');
+
+  // Chair(s) on top; Secretary/Treasurer beside Vice Chairperson; coordinators under Vice Chairperson.
+  const viceBranch = vice.map((v) => li(v, rest.length ? `<ul>${rest.map((m) => li(m)).join('')}</ul>` : ''));
+  const secondRow = [...viceBranch, ...of('Secretary', 'Treasurer').map((m) => li(m))];
+  const under = secondRow.length ? `<ul>${secondRow.join('')}</ul>` : '';
+  // No Vice Chairperson? Coordinators hang straight off the chair.
+  const body = chair.length
+    ? `<ul class="tree">${chair.map((c) => li(c, vice.length ? under : `<ul>${[...of('Secretary', 'Treasurer'), ...rest].map((m) => li(m)).join('')}</ul>`)).join('')}</ul>`
+    : `<ul class="tree"><li>${members.map(node).join('')}</li></ul>`; // ponytail: no chair = flat list, good enough
+
+  const advisors = of('Advisor');
+  const css = `
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font: 12px/1.4 system-ui, sans-serif; color: #1b1b1b; text-align: center; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: #777; font-size: 11px; margin-bottom: 18px; }
+  .node { display: inline-flex; flex-direction: column; gap: 1px; border: 1px solid #cfcfcf; border-radius: 8px;
+          padding: 8px 12px; background: #fff; min-width: 130px; }
+  .node strong { font-size: 12px; }
+  .node span { font-size: 10px; color: #666; }
+  .node em { font-size: 10px; color: #999; font-style: normal; }
+  .node.inactive { opacity: .55; border-style: dashed; }
+  .tag { font-size: 9px; color: #b00; }
+  .advisors { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
+  ul { padding: 0; margin: 0; }
+  .tree ul { position: relative; padding-top: 20px; display: flex; justify-content: center; flex-wrap: wrap; }
+  .tree li { list-style: none; position: relative; padding: 20px 8px 0; }
+  .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%;
+          border-top: 1px solid #bbb; width: 50%; height: 20px; }
+  .tree li::after { right: auto; left: 50%; border-left: 1px solid #bbb; }
+  .tree li:only-child { padding-top: 0; }
+  .tree li:only-child::before, .tree li:only-child::after { display: none; }
+  .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+  .tree li:last-child::before { border-right: 1px solid #bbb; border-radius: 0 6px 0 0; }
+  .tree li:first-child::after { border-radius: 6px 0 0 0; }
+  .tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 1px solid #bbb; height: 20px; }
+  li { break-inside: avoid; }`;
+
+  const html = `<h1>NourishFest 2026 — Committee</h1>
+<div class="sub">${members.length} member${members.length === 1 ? '' : 's'}</div>
+${advisors.length ? `<div class="advisors">${advisors.map(node).join('')}</div>` : ''}
+${body}`;
+
+  printHtml('NourishFest 2026 — Committee Org Chart', html, css);
+}
 
 export function CommitteeGrid() {
   const { items, isLoading, create, update, remove, isMutating } = useEntityData<Committee>('Committee');
@@ -59,11 +125,16 @@ export function CommitteeGrid() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-semibold">Committee</h2>
-        {canEdit && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Add Member
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => exportOrgChart(items)} disabled={!items.length}>
+            <FileDown className="h-4 w-4" /> Export Org Chart
           </Button>
-        )}
+          {canEdit && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" /> Add Member
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

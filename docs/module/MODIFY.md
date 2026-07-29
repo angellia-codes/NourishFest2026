@@ -13,6 +13,8 @@ Revision
    🎤 Program & Production
    👥 Team Welfare & Engagement
    📦 Logistics & Administration
+   🚐 Transportation
+   🧾 Miscellaneous
 3. Add Supplier Category
    Nourish
    Wholefood

@@ -167,6 +167,11 @@ export function EntityCrudTable<T extends object>({
         <div className="space-y-3">
           {fields.map((f) => {
             const value = form[f.key];
+            // A stored value that isn't in `options` (a since-removed committee member,
+            // a renamed status) would render as a blank dropdown hiding a real value.
+            const opts = f.options ?? [];
+            const selectOpts =
+              typeof value === 'string' && value && !opts.includes(value) ? [value, ...opts] : opts;
             return (
               <Field key={f.key} label={f.label}>
                 {f.computed ? (
@@ -183,7 +188,7 @@ export function EntityCrudTable<T extends object>({
                     value={(value as string) ?? ''}
                     onChange={(e) => setFieldValue(f.key, e.target.value)}
                   >
-                    {(f.options ?? []).map((o) => (
+                    {selectOpts.map((o) => (
                       <option key={o} value={o}>
                         {o}
                       </option>

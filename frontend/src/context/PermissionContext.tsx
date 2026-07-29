@@ -33,8 +33,13 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
 
   const tier = user?.permission ?? 'none';
 
-  const accessLevel = (entity: EntityName): AccessLevel =>
-    tier === 'none' ? 'none' : ENTITY_ACCESS[entity][tier as 'Admin' | 'Advisor' | 'Member'] ?? 'none';
+  const accessLevel = (entity: EntityName): AccessLevel => {
+    // Sponsorship Coordinator is a Member tier that RLS also grants write on
+    // Finance_Incoming (is_finance_editor() in schema.sql) — the one case
+    // ENTITY_ACCESS can't express, since it's keyed by tier and not by role.
+    if (entity === 'Finance_Incoming' && user?.role === 'Sponsorship Coordinator') return 'write';
+    return tier === 'none' ? 'none' : ENTITY_ACCESS[entity][tier as 'Admin' | 'Advisor' | 'Member'] ?? 'none';
+  };
 
   const canRead = (entity: EntityName) => accessLevel(entity) !== 'none';
   const canWrite = (entity: EntityName) => accessLevel(entity) === 'write';
