@@ -40,6 +40,8 @@ const CATEGORIES = [
   '🎤 Program & Production',
   '👥 Team Welfare & Engagement',
   '📦 Logistics & Administration',
+  '🚐 Transportation',
+  '🧾 Miscellaneous',
 ];
 
 function emptyForm(eventId: string): Partial<BudgetBreakdown> {
